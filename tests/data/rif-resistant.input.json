@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0.0",
+  "nomenclature": "GARC",
+  "source": {
+    "producer": "mtb-resistotyper-ml test fixture",
+    "reference": "NC_000962.3"
+  },
+  "covariates": {
+    "lineage": "lineage2",
+    "median_coverage": 124.86,
+    "breadth": 99.103
+  },
+  "sample_id": "TEST-RIF-R",
+  "variants": [
+    {
+      "gene": "rpoB",
+      "mutation": "S450L"
+    },
+    {
+      "gene": "katG",
+      "mutation": "S315T"
+    }
+  ]
+}

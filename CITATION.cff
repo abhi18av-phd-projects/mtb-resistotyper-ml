@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the accompanying article."
+title: "mtb-resistotyper-ml: a runner for versioned M. tuberculosis resistance models"
+abstract: >-
+  Command-line runner that scores Mycobacterium tuberculosis drug-resistance model
+  bundles which declare their own operating range. The models are distributed
+  separately and joined to the runner only by the artefact contract.
+authors:
+  - family-names: Sharma
+    given-names: Abhinav
+    orcid: "https://orcid.org/0000-0002-6402-6993"
+license: EPL-2.0
+type: software
+version: 0.1.0
+keywords:
+  - antimicrobial resistance
+  - tuberculosis
+  - machine learning
+  - model distribution

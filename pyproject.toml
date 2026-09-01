@@ -1,0 +1,51 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mtb-resistotyper-ml"
+version = "0.1.0"
+description = "Runner for versioned Mycobacterium tuberculosis drug-resistance models that declare their own operating range"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "EPL-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Abhinav Sharma", email = "abhi18av@outlook.com" }]
+keywords = [
+  "antimicrobial resistance", "tuberculosis", "machine learning",
+  "genomics", "model distribution", "lineage-aware evaluation",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: Eclipse Public License 2.0 (EPL-2.0)",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+# Deliberately empty. Scoring a deployed bundle is a closed form over the standard
+# library; adding a numerical stack here would be a dependency the tool does not use.
+dependencies = []
+
+[project.optional-dependencies]
+catalogue = ["piezo>=1.0"]     # Layer 1, the curated WHO catalogue
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.scripts]
+mtb-resistotyper-ml = "mtb_resistotyper_ml.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/abhi18av-phd-projects/mtb-resistotyper-ml"
+Models = "https://github.com/abhi18av-phd-projects/mtb-resistotyper-ml-models"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mtb_resistotyper_ml"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["B", "C4", "E", "F", "I", "RUF", "UP", "W"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

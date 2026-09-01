@@ -1,0 +1,321 @@
+{
+  "sample_id": "TEST-RIF-S",
+  "lineage": "lineage2",
+  "n_mutations_carried": 0,
+  "drug": "RIF",
+  "prediction": "S",
+  "p_resistant": 0.0422,
+  "threshold": 0.5,
+  "operating_range": {
+    "auc": 0.9455,
+    "tier": "usable",
+    "metric": "nested lineage-leave-one-out cross-validation"
+  },
+  "contributions": [
+    {
+      "feature": "raw__rpoB_S450L",
+      "value": 0.0,
+      "coef": 2.4366,
+      "logit_contribution": -1.4183,
+      "direction": "R+"
+    },
+    {
+      "feature": "raw__katG_S315T",
+      "value": 0.0,
+      "coef": 0.6158,
+      "logit_contribution": -0.4894,
+      "direction": "R+"
+    },
+    {
+      "feature": "raw__Rv0095c_A85V",
+      "value": 0.0,
+      "coef": -0.3328,
+      "logit_contribution": 0.3563,
+      "direction": "S-"
+    },
+    {
+      "feature": "raw__Rv0095c_D57E",
+      "value": 0.0,
+      "coef": -0.2119,
+      "logit_contribution": 0.2508,
+      "direction": "S-"
+    },
+    {
+      "feature": "raw__rpoB_D435V",
+      "value": 0.0,
+      "coef": 0.9873,
+      "logit_contribution": -0.2236,
+      "direction": "R+"
+    },
+    {
+      "feature": "raw__Rv0095c_A91V",
+      "value": 0.0,
+      "coef": 0.1494,
+      "logit_contribution": -0.1666,
+      "direction": "R+"
+    },
+    {
+      "feature": "raw__pks12_R1652C",
+      "value": 0.0,
+      "coef": 0.1815,
+      "logit_contribution": -0.162,
+      "direction": "R+"
+    },
+    {
+      "feature": "raw__Rv1588c_A63Z",
+      "value": 0.0,
+      "coef": -0.1106,
+      "logit_contribution": 0.148,
+      "direction": "S-"
+    },
+    {
+      "feature": "raw__Rv0095c_Q92G",
+      "value": 0.0,
+      "coef": 0.1249,
+      "logit_contribution": -0.1383,
+      "direction": "R+"
+    },
+    {
+      "feature": "raw__PE_PGRS7_3396_del_cggcaccgg",
+      "value": 0.0,
+      "coef": -0.1415,
+      "logit_contribution": 0.1154,
+      "direction": "S-"
+    },
+    {
+      "feature": "raw__PE_PGRS53_2516_ins_cggcgacggcggcaacggcggtggcggcggcgcgggcggcaccggcggcgacggcgccaccggcacgccagccggcaacgg",
+      "value": 0.0,
+      "coef": 0.1365,
+      "logit_contribution": -0.1008,
+      "direction": "R+"
+    },
+    {
+      "feature": "raw__rpoB_H445D",
+      "value": 0.0,
+      "coef": 0.7679,
+      "logit_contribution": -0.0984,
+      "direction": "R+"
+    },
+    {
+      "feature": "raw__Rv1588c_A56Z",
+      "value": 0.0,
+      "coef": 0.0671,
+      "logit_contribution": -0.0955,
+      "direction": "R+"
+    },
+    {
+      "feature": "raw__PE_PGRS22_G730G",
+      "value": 0.0,
+      "coef": 0.113,
+      "logit_contribution": -0.0805,
+      "direction": "R+"
+    },
+    {
+      "feature": "raw__rpoB_H445Y",
+      "value": 0.0,
+      "coef": 0.6832,
+      "logit_contribution": -0.0796,
+      "direction": "R+"
+    },
+    {
+      "feature": "raw__PE_PGRS44_G432G",
+      "value": 0.0,
+      "coef": -0.0972,
+      "logit_contribution": 0.07,
+      "direction": "S-"
+    },
+    {
+      "feature": "raw__PPE19_T131Z",
+      "value": 0.0,
+      "coef": -0.041,
+      "logit_contribution": 0.0572,
+      "direction": "S-"
+    },
+    {
+      "feature": "raw__rpoB_D103D",
+      "value": 0.0,
+      "coef": -0.1646,
+      "logit_contribution": 0.0557,
+      "direction": "S-"
+    },
+    {
+      "feature": "raw__rpoB_D435Y",
+      "value": 0.0,
+      "coef": 0.408,
+      "logit_contribution": -0.0426,
+      "direction": "R+"
+    },
+    {
+      "feature": "raw__Rv1588c_V53Z",
+      "value": 0.0,
+      "coef": 0.028,
+      "logit_contribution": -0.0389,
+      "direction": "R+"
+    },
+    {
+      "feature": "raw__Rv1588c_G107Z",
+      "value": 0.0,
+      "coef": -0.0333,
+      "logit_contribution": 0.0333,
+      "direction": "S-"
+    },
+    {
+      "feature": "raw__rpoB_S450Z",
+      "value": 0.0,
+      "coef": 0.3704,
+      "logit_contribution": -0.0325,
+      "direction": "R+"
+    },
+    {
+      "feature": "raw__rpoB_L452P",
+      "value": 0.0,
+      "coef": 0.2802,
+      "logit_contribution": -0.0286,
+      "direction": "R+"
+    },
+    {
+      "feature": "raw__rpoB_S450W",
+      "value": 0.0,
+      "coef": 0.3952,
+      "logit_contribution": -0.0263,
+      "direction": "R+"
+    },
+    {
+      "feature": "raw__rpoB_H445L",
+      "value": 0.0,
+      "coef": 0.3307,
+      "logit_contribution": -0.0261,
+      "direction": "R+"
+    },
+    {
+      "feature": "raw__PPE69_T19K",
+      "value": 0.0,
+      "coef": 0.0095,
+      "logit_contribution": -0.0251,
+      "direction": "R+"
+    },
+    {
+      "feature": "raw__rpoB_D435G",
+      "value": 0.0,
+      "coef": 0.3101,
+      "logit_contribution": -0.021,
+      "direction": "R+"
+    },
+    {
+      "feature": "raw__rpoB_S450F",
+      "value": 0.0,
+      "coef": 0.3005,
+      "logit_contribution": -0.0182,
+      "direction": "R+"
+    },
+    {
+      "feature": "raw__PE_PGRS54_S1232N",
+      "value": 0.0,
+      "coef": 0.0129,
+      "logit_contribution": -0.018,
+      "direction": "R+"
+    },
+    {
+      "feature": "raw__rpoB_H445R",
+      "value": 0.0,
+      "coef": 0.2772,
+      "logit_contribution": -0.0161,
+      "direction": "R+"
+    },
+    {
+      "feature": "raw__rpoB_H445Z",
+      "value": 0.0,
+      "coef": 0.2488,
+      "logit_contribution": -0.0148,
+      "direction": "R+"
+    },
+    {
+      "feature": "raw__rpoB_V170F",
+      "value": 0.0,
+      "coef": 0.3022,
+      "logit_contribution": -0.014,
+      "direction": "R+"
+    },
+    {
+      "feature": "raw__rpoB_D435Z",
+      "value": 0.0,
+      "coef": 0.2195,
+      "logit_contribution": -0.0137,
+      "direction": "R+"
+    },
+    {
+      "feature": "raw__rpoB_A692T",
+      "value": 0.0,
+      "coef": -0.1559,
+      "logit_contribution": 0.0134,
+      "direction": "S-"
+    },
+    {
+      "feature": "raw__rpoB_H445C",
+      "value": 0.0,
+      "coef": 0.2269,
+      "logit_contribution": -0.0092,
+      "direction": "R+"
+    },
+    {
+      "feature": "raw__hycQ_G146G",
+      "value": 0.0,
+      "coef": -0.0115,
+      "logit_contribution": 0.0086,
+      "direction": "S-"
+    },
+    {
+      "feature": "raw__rpoB_V695L",
+      "value": 0.0,
+      "coef": -0.0856,
+      "logit_contribution": 0.0063,
+      "direction": "S-"
+    },
+    {
+      "feature": "raw__rpoB_L731P",
+      "value": 0.0,
+      "coef": 0.0424,
+      "logit_contribution": -0.0021,
+      "direction": "R+"
+    },
+    {
+      "feature": "raw__rpoB_Q975H",
+      "value": 0.0,
+      "coef": 0.043,
+      "logit_contribution": -0.002,
+      "direction": "R+"
+    },
+    {
+      "feature": "cov__median_coverage",
+      "value": 124.86,
+      "coef": -0.1202,
+      "logit_contribution": 0.0,
+      "direction": "S-"
+    },
+    {
+      "feature": "cov__tb_breadth",
+      "value": 99.10263658922405,
+      "coef": 0.0273,
+      "logit_contribution": 0.0,
+      "direction": "R+"
+    }
+  ],
+  "primary_drivers": [],
+  "passengers_flagged": [],
+  "confidence": {
+    "tier": "usable",
+    "auc": 0.9455,
+    "caveat": "RIF sits in the 'usable' tier at AUC 0.946 under nested lineage-leave-one-out cross-validation. This is a Layer 2 call: it is intended for variants the curated catalogue grades Unknown or Fail, and never overrides a catalogue call."
+  },
+  "reasons": [],
+  "provenance": {
+    "runner": "mtb-resistotyper-ml 0.1.0",
+    "model_card": {
+      "catalogue_edition": "WHO-UCN-GTB-PCI-2023.5",
+      "mart_source_db_sha256": "1d79553acd736e3eef8544c39afc19e26da7a28d22e0847904afb47213403ccb",
+      "fold_assignment": "stratified_round_robin_stdlib_random"
+    },
+    "layer": 2,
+    "catalogue_consulted": false
+  }
+}

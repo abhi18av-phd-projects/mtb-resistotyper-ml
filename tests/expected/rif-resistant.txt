@@ -1,0 +1,10 @@
+sample     TEST-RIF-R
+drug       RIF
+call       R   P(R) = 0.9769
+tier       usable  (AUC 0.946, nested lineage-leave-one-out)
+
+reasons    2 mutation(s) carried
+  rpoB@S450L           coef +2.437   logit +4.186   on-target  primary driver
+  katG@S315T           coef +0.616   logit +0.775   OFF-target co-selected passenger (multi-drug linkage)
+
+note       RIF sits in the 'usable' tier at AUC 0.946 under nested lineage-leave-one-out cross-validation. This is a Layer 2 call: it is intended for variants the curated catalogue grades Unknown or Fail, and never overrides a catalogue call.

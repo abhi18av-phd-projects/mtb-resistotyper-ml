@@ -1,0 +1,125 @@
+# mtb-resistotyper-ml
+
+Predict *Mycobacterium tuberculosis* drug resistance from variant calls, using a **versioned
+model bundle that declares its own operating range**.
+
+```bash
+pip install mtb-resistotyper-ml
+```
+
+## The models are not in here
+
+This is the **runner**. The trained models live in
+[`mtb-resistotyper-ml-models`](https://github.com/abhi18av-phd-projects/mtb-resistotyper-ml-models),
+with their own release cadence, and the two are joined only by the artefact contract:
+`feature_schema.json` fixes the input, `model_card.json` carries the operating range.
+
+That separation is the point. A revised WHO catalogue edition, a larger training cohort, or a
+model retrained for a different population produces a new version *there* and leaves this tool
+untouched — and a third party can retrain and publish a bundle this runner will load without
+needing anything from us.
+
+```bash
+git clone https://github.com/abhi18av-phd-projects/mtb-resistotyper-ml-models
+mtb-resistotyper-ml describe --model mtb-resistotyper-ml-models/models/RIF
+```
+
+```
+drug        RIF
+model       standardscaler+l2_logistic
+features    41
+AUC         0.9455   (nested lineage-leave-one-out cross-validation)
+tier        usable
+per lineage lineage1=0.912  lineage2=0.964  lineage3=0.948  lineage4=0.958
+```
+
+## Predicting
+
+```bash
+mtb-resistotyper-ml predict \
+  --input isolate.json \
+  --model mtb-resistotyper-ml-models/models/RIF
+```
+
+```
+sample     TEST-RIF-R
+drug       RIF
+call       R   P(R) = 0.9769
+tier       usable  (AUC 0.946, nested lineage-leave-one-out)
+
+reasons    2 mutation(s) carried
+  rpoB@S450L           coef +2.437   logit +4.186   on-target  primary driver
+  katG@S315T           coef +0.616   logit +0.775   OFF-target co-selected passenger (multi-drug linkage)
+```
+
+`--json` emits the structured result for machine consumption.
+
+Note what the second line of reasoning does: `katG S315T` genuinely raises the rifampicin
+probability, because in this population it travels with `rpoB` mutations — but it is not a
+rifampicin mechanism, and the tool says so rather than presenting it as one.
+
+## Input
+
+A JSON instance validating against `input_spec.schema.json`: GARC-nomenclature variant calls
+plus sample covariates, and **no catalogue interpretation**. Replacing that interpretation is
+what the model does; including it would leak the answer. Absence of a variant means wild type at
+that locus.
+
+```json
+{
+  "schema_version": "1.0.0",
+  "sample_id": "ERR1234567",
+  "nomenclature": "GARC",
+  "covariates": {"lineage": "lineage2", "median_coverage": 55.0, "breadth": 0.98},
+  "variants": [{"gene": "rpoB", "mutation": "S450L"}]
+}
+```
+
+## What this tool does not do
+
+**It is a Layer 2 predictor.** It is meant to fire where the curated WHO catalogue returns
+Unknown or Fail — roughly 40% of catalogue entries, plus all novel variants — and it never
+overrides a catalogue call. Layer 1, catalogue evaluation via `piezo`, is not yet wired into
+this runner; until it is, run the catalogue yourself and consult this tool only for what the
+catalogue could not grade. Installing the `catalogue` extra does not change that.
+
+**It is not clinically validated.** No prospective validation has been done. Research use only.
+
+**It has no model for bedaquiline, clofazimine, linezolid or delamanid.** Those perform at
+chance under honest evaluation, so no bundle is published for them.
+
+## Runtime
+
+Scoring is a closed form over the standard library:
+
+    p(R) = sigmoid( ((x - scaler_mean) / scaler_scale) . coef + intercept )
+
+so this package declares no runtime dependencies, and the scoring path can be vendored or
+reimplemented in another language. **Training is a different matter** and is not part of this
+package: reproducing a model requires the training pipeline in the paper-assets repository,
+which needs a JVM (H2O, for the model-class comparison) and a GPU (protein-language-model
+features and the deep-network sweep).
+
+## Why the coefficients are the explanation
+
+The deployed model class was not chosen for interpretability. It was chosen because it *won*:
+on identical features and folds, a regularised linear model beat gradient-boosted trees and a
+tuned deep network under lineage-leave-one-out evaluation, because the extra capacity was
+fitting population structure that does not transfer. The model being small and exactly
+explainable is a consequence of honest evaluation, not a trade against accuracy.
+
+So the per-feature logit contributions are not an approximation of the model. They are the
+model, and they sum to the logit — which `tests/test_serving.py` asserts.
+
+## Tests
+
+```bash
+MTB_MODELS=/path/to/mtb-resistotyper-ml-models pytest
+```
+
+Fixtures live in `tests/data` with recorded expected outputs in `tests/expected`, so a change in
+scoring cannot pass silently.
+
+## Licence
+
+EPL-2.0.

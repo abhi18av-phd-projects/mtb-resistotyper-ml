@@ -1,0 +1,9 @@
+sample     TEST-RIF-S
+drug       RIF
+call       S   P(R) = 0.0422
+tier       usable  (AUC 0.946, nested lineage-leave-one-out)
+
+reasons    0 mutation(s) carried
+  none — the call rests on the intercept alone
+
+note       RIF sits in the 'usable' tier at AUC 0.946 under nested lineage-leave-one-out cross-validation. This is a Layer 2 call: it is intended for variants the curated catalogue grades Unknown or Fail, and never overrides a catalogue call.
