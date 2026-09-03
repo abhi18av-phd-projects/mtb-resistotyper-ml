@@ -41,6 +41,10 @@ predictions.tsv   one row per drug, with the reasoning flattened into a column
 predictions.json  the full structured result, including every contribution
 reasoning.txt     the same rendering `mtb-resistotyper-ml predict` prints
 
+RESEARCH USE ONLY. NOT A DIAGNOSTIC. These models have not been prospectively
+validated and have no regulatory clearance. Do not use any value in these files
+to guide the treatment of a patient.
+
 These are Layer 2 model calls. No curated WHO catalogue was consulted, so
 nothing here overrides a catalogue result; the models are intended for variants
 a catalogue grades Unknown or Fail.

@@ -45,9 +45,16 @@
      signed contribution of every mutation that moved it.</p>
 
   <div class="note">
-    <strong>Layer 2 only.</strong> These models are intended to fire where a curated WHO
-    catalogue returns Unknown or Fail. No catalogue is consulted here, so every call is a model
-    call and none overrides a catalogue result. Research use only; not prospectively validated.
+    <strong>Research use only. Not a diagnostic.</strong> These are Layer 2 machine-learning
+    calls from models that have not been prospectively validated and have no regulatory
+    clearance. No curated WHO catalogue is consulted here, so every call is a model call and
+    none overrides a catalogue result; the models are intended for variants a catalogue grades
+    Unknown or Fail. Do not use any output on this page to guide the treatment of a patient.
+  </div>
+  <div class="note">
+    <strong>Uploads are not retained.</strong> A submitted VCF is written to a temporary file,
+    converted, and deleted before the response is returned. Nothing is stored, logged to disk,
+    or shared. Even so, this is a public endpoint: do not upload identifiable patient data.
   </div>
 
   <form class="card" id="f">

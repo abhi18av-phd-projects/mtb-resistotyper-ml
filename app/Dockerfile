@@ -21,7 +21,12 @@ RUN mkdir -p /opt/reference && curl -sSfL --retry 5 \
 
 RUN pip install --no-cache-dir \
       fastapi==0.115.6 "uvicorn[standard]==0.34.0" python-multipart==0.0.20 \
-      bio-gumpy==2.1.1 pysam==0.22.1
+      gumpy==1.3.8 \
+      # gumpy reads SeqFeature.strand, which Biopython deprecated in 1.81 and
+      # removed in 1.85. An unpinned install therefore resolves to a Biopython
+      # that parses the GenBank file and then fails on every gene, so the pin is
+      # load-bearing rather than tidy.
+      "biopython==1.83"
 
 COPY dist/*.whl /tmp/
 RUN pip install --no-cache-dir /tmp/*.whl && rm -f /tmp/*.whl

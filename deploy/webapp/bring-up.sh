@@ -9,7 +9,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MODELS_REPO="${MODELS_REPO:-$(cd "$REPO_ROOT/../mtb-resistotyper-ml-models" && pwd)}"
-TAG="${TAG:-v0.1.0}"
+TAG="${TAG:-v0.1.1}"
 HOST="${HOST:-sun-aither}"
 CTX="${ABC_CLI_CONTEXT:-seedling-abhi}"
 
@@ -43,5 +43,10 @@ ssh "$HOST" "cd ~/mtb-webapp-build && tar xzf ctx.tgz && \
 echo "==> deploying"
 cd "$REPO_ROOT/deploy/webapp"
 ABC_CLI_CONTEXT="$CTX" abc app validate
-ABC_CLI_CONTEXT="$CTX" abc app deploy
+# --node-pool is not optional here. This context supplies no head_pool, so the
+# generated job carries no node_pool and lands in "default", which holds no
+# nodes: the deploy is accepted and then never places, reporting "No nodes were
+# eligible for evaluation". The image also exists only in aither's local daemon,
+# and aither is the platform pool, so the placement and the image agree.
+ABC_CLI_CONTEXT="$CTX" abc app deploy --node-pool platform --health-timeout 4m
 ABC_CLI_CONTEXT="$CTX" abc app show mtb-resistotyper

@@ -11,15 +11,19 @@ framework: custom
 
 # Built by deploy/webapp/bring-up.sh. "aither.local" is the platform's
 # local-image naming convention, not a live registry: docker push always fails.
-image: aither.local/mtb-resistotyper-webapp:v0.1.0
+image: aither.local/mtb-resistotyper-webapp:v0.1.1
 
 port: 8080
 health: /health
 
-# Not public. The service returns clinical-shaped calls from models that have
-# not been prospectively validated, so its reach is the group and the campus.
+# Public, so that the models described in the manuscript can be exercised by a
+# reviewer or a reader without cluster access. That reach is the reason the
+# page and every download state, unprompted, that these are Layer 2 model calls
+# from models with no prospective validation, and that no curated catalogue was
+# consulted. A reader who arrives from a search engine rather than from the
+# paper has to be told the same thing the paper tells them.
 access: team
-expose: [shared, private]
+expose: [public, shared, private]
 
 resources:
   cpu: 1000      # MHz — gumpy's genome diff dominates; scoring is arithmetic
