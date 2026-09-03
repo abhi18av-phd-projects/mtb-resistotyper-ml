@@ -1,0 +1,30 @@
+# mtb-resistotyper-ml prediction service.
+#
+# Layer 2 only: these models are meant to fire where a curated WHO catalogue
+# returns Unknown or Fail, and this service consults no catalogue. Every call it
+# makes is therefore a model call, and it labels each one as such rather than
+# leaving the reader to infer it.
+version: "1.0"
+name: mtb-resistotyper
+project: mbhg-bioinformatics
+framework: custom
+
+# Built by deploy/webapp/bring-up.sh. "aither.local" is the platform's
+# local-image naming convention, not a live registry: docker push always fails.
+image: aither.local/mtb-resistotyper-webapp:v0.1.0
+
+port: 8080
+health: /health
+
+# Not public. The service returns clinical-shaped calls from models that have
+# not been prospectively validated, so its reach is the group and the campus.
+access: team
+expose: [shared, private]
+
+resources:
+  cpu: 1000      # MHz — gumpy's genome diff dominates; scoring is arithmetic
+  memory: 4096   # MiB — a parsed H37Rv genome object is the floor
+
+env:
+  MTB_MODELS: /opt/models
+  MTB_REFERENCE_GENBANK: /opt/reference/NC_000962.3.gbk

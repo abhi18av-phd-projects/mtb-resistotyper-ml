@@ -1,0 +1,88 @@
+<!doctype html><meta charset="utf-8"><title>mtb-resistotyper-ml</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+ :root{--ink:#101821;--muted:#697a8a;--line:#d9e1e9;--bg:#f7f9fb;--card:#fff;
+       --accent:#0072b2;--warn:#d55e00}
+ @media(prefers-color-scheme:dark){:root{--ink:#e6ecf2;--muted:#8395a5;--line:#26313b;
+       --bg:#0e141a;--card:#161e26;--accent:#57a9dc;--warn:#f0834a}}
+ *{box-sizing:border-box}
+ body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,sans-serif}
+ .wrap{max-width:760px;margin:0 auto;padding:40px 22px 70px}
+ h1{font-size:25px;margin:0 0 4px;letter-spacing:-.01em}
+ p.sub{margin:0 0 26px;color:var(--muted);max-width:60ch}
+ .card{background:var(--card);border:1px solid var(--line);border-radius:11px;
+       padding:20px;margin-bottom:16px}
+ label{display:block;font-size:13px;font-weight:600;margin:0 0 6px}
+ input,select,button{font:inherit}
+ input[type=file],select{width:100%;padding:9px;border:1px solid var(--line);
+       border-radius:7px;background:var(--bg);color:var(--ink);margin-bottom:14px}
+ button{background:var(--accent);color:#fff;border:0;border-radius:7px;
+        padding:10px 18px;font-weight:600;cursor:pointer}
+ button:disabled{opacity:.55;cursor:progress}
+ .note{border-left:3px solid var(--warn);padding:11px 14px;background:var(--card);
+       border-radius:8px;font-size:13.5px;color:var(--muted);margin-bottom:16px}
+ table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:6px}
+ th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line)}
+ th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+ .R{color:var(--warn);font-weight:600}.S{color:var(--accent);font-weight:600}
+ .scroll{overflow-x:auto}
+ code{background:var(--bg);padding:1px 5px;border-radius:4px;font-size:.9em}
+</style>
+<div class="wrap">
+  <h1>mtb-resistotyper-ml</h1>
+  <p class="sub">Upload a VCF and receive per-drug resistance predictions, each carrying the
+     measured operating range of the model that produced it.</p>
+
+  <div class="note">
+    <strong>Layer 2 only.</strong> These models are intended to fire where a curated WHO
+    catalogue returns Unknown or Fail. No catalogue is consulted here, so every call is a model
+    call and none overrides a catalogue result. Research use only; not prospectively validated.
+  </div>
+
+  <form class="card" id="f">
+    <label for="vcf">VCF file</label>
+    <input id="vcf" name="vcf" type="file" accept=".vcf,.vcf.gz" required>
+    <label for="lineage">Lineage (optional; improves covariate handling)</label>
+    <select id="lineage" name="lineage">
+      <option value="unknown">unknown</option>
+      <option>lineage1</option><option>lineage2</option>
+      <option>lineage3</option><option>lineage4</option>
+    </select>
+    <button id="go" type="submit">Predict</button>
+  </form>
+
+  <div id="out"></div>
+</div>
+<script>
+const f=document.getElementById('f'),out=document.getElementById('out'),go=document.getElementById('go');
+f.addEventListener('submit',async e=>{
+  e.preventDefault(); go.disabled=true; go.textContent='Scoring…'; out.innerHTML='';
+  const fd=new FormData(); fd.append('vcf',document.getElementById('vcf').files[0]);
+  fd.append('lineage',document.getElementById('lineage').value); fd.append('fmt','json');
+  try{
+    const r=await fetch('predict',{method:'POST',body:fd});
+    if(!r.ok){ out.innerHTML='<div class="note">'+(await r.text())+'</div>'; return; }
+    const rows=await r.json();
+    if(!rows.length){ out.innerHTML='<div class="note">No drugs scored.</div>'; return; }
+    let h='<div class="card"><div class="scroll"><table><tr><th>Drug</th><th>Call</th>'
+        +'<th>P(R)</th><th>Tier</th><th>AUC</th><th>Drivers</th></tr>';
+    for(const x of rows){
+      h+='<tr><td>'+x.drug+'</td><td class="'+x.prediction+'">'+x.prediction+'</td><td>'
+        +x.p_resistant+'</td><td>'+(x.tier||'—')+'</td><td>'+(x.auc??'—')+'</td><td>'
+        +(x.primary_drivers.join(', ')||'—')+'</td></tr>';
+    }
+    h+='</table></div></div>';
+    const q=new URLSearchParams(); // re-post for the download
+    h+='<div class="card"><button id="dl">Download results (.zip)</button></div>';
+    out.innerHTML=h;
+    document.getElementById('dl').onclick=async()=>{
+      const fd2=new FormData(); fd2.append('vcf',document.getElementById('vcf').files[0]);
+      fd2.append('lineage',document.getElementById('lineage').value); fd2.append('fmt','zip');
+      const rz=await fetch('predict',{method:'POST',body:fd2});
+      const b=await rz.blob(), a=document.createElement('a');
+      a.href=URL.createObjectURL(b); a.download='predictions.zip'; a.click();
+    };
+  }catch(err){ out.innerHTML='<div class="note">'+err+'</div>'; }
+  finally{ go.disabled=false; go.textContent='Predict'; }
+});
+</script>
