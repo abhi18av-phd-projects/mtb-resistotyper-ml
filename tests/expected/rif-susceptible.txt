@@ -2,6 +2,7 @@ sample     TEST-RIF-S
 drug       RIF
 call       S   P(R) = 0.0422
 tier       usable  (AUC 0.946, nested lineage-leave-one-out)
+reliability 4/5  [####.]  margin 0.916  (capped: intercept only)
 
 reasons    0 mutation(s) carried
   none — the call rests on the intercept alone

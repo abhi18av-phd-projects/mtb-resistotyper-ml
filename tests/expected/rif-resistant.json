@@ -11,6 +11,15 @@
     "tier": "usable",
     "metric": "nested lineage-leave-one-out cross-validation"
   },
+  "reliability": {
+    "band": 5,
+    "of": 5,
+    "margin": 0.9538,
+    "capped_by_tier": false,
+    "capped_by_evidence": false,
+    "evidence": "2 modelled mutation(s)",
+    "basis": "probability margin, capped by the bundle's tier and by the evidence the call rests on"
+  },
   "contributions": [
     {
       "feature": "raw__rpoB_S450L",
@@ -330,15 +339,5 @@
       "on_target": false,
       "role": "co-selected passenger (multi-drug linkage)"
     }
-  ],
-  "provenance": {
-    "runner": "mtb-resistotyper-ml 0.1.0",
-    "model_card": {
-      "catalogue_edition": "WHO-UCN-GTB-PCI-2023.5",
-      "mart_source_db_sha256": "1d79553acd736e3eef8544c39afc19e26da7a28d22e0847904afb47213403ccb",
-      "fold_assignment": "stratified_round_robin_stdlib_random"
-    },
-    "layer": 2,
-    "catalogue_consulted": false
-  }
+  ]
 }

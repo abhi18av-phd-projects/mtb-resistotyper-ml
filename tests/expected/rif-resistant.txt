@@ -2,6 +2,7 @@ sample     TEST-RIF-R
 drug       RIF
 call       R   P(R) = 0.9769
 tier       usable  (AUC 0.946, nested lineage-leave-one-out)
+reliability 5/5  [#####]  margin 0.954
 
 reasons    2 mutation(s) carried
   rpoB@S450L           coef +2.437   logit +4.186   on-target  primary driver

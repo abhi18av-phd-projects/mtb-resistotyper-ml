@@ -25,13 +25,24 @@
  th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line)}
  th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
  .R{color:var(--warn);font-weight:600}.S{color:var(--accent);font-weight:600}
+ .band{font-family:ui-monospace,monospace;letter-spacing:.12em;font-size:12px}
+ details{border-top:1px solid var(--line);padding:9px 0}
+ details:first-of-type{border-top:0}
+ summary{cursor:pointer;list-style:none;display:flex;gap:12px;align-items:baseline;
+         flex-wrap:wrap;font-weight:600}
+ summary::-webkit-details-marker{display:none}
+ summary .p{font-weight:400;color:var(--muted)}
+ pre{background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:11px;
+     overflow-x:auto;font-size:12.5px;margin:9px 0 2px}
+ .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
  .scroll{overflow-x:auto}
  code{background:var(--bg);padding:1px 5px;border-radius:4px;font-size:.9em}
 </style>
 <div class="wrap">
   <h1>mtb-resistotyper-ml</h1>
-  <p class="sub">Upload a VCF and receive per-drug resistance predictions, each carrying the
-     measured operating range of the model that produced it.</p>
+  <p class="sub">Upload a VCF and receive per-drug resistance predictions. Each call carries the
+     measured operating range of the model that produced it, a reliability band, and the
+     signed contribution of every mutation that moved it.</p>
 
   <div class="note">
     <strong>Layer 2 only.</strong> These models are intended to fire where a curated WHO
@@ -64,24 +75,45 @@ f.addEventListener('submit',async e=>{
     if(!r.ok){ out.innerHTML='<div class="note">'+(await r.text())+'</div>'; return; }
     const rows=await r.json();
     if(!rows.length){ out.innerHTML='<div class="note">No drugs scored.</div>'; return; }
-    let h='<div class="card"><div class="scroll"><table><tr><th>Drug</th><th>Call</th>'
-        +'<th>P(R)</th><th>Tier</th><th>AUC</th><th>Drivers</th></tr>';
+    const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    let h='<div class="card">';
     for(const x of rows){
-      h+='<tr><td>'+x.drug+'</td><td class="'+x.prediction+'">'+x.prediction+'</td><td>'
-        +x.p_resistant+'</td><td>'+(x.tier||'—')+'</td><td>'+(x.auc??'—')+'</td><td>'
-        +(x.primary_drivers.join(', ')||'—')+'</td></tr>';
+      const rel=x.reliability, bar='#'.repeat(rel.band)+'.'.repeat(rel.of-rel.band);
+      h+='<details><summary><span>'+esc(x.drug)+'</span>'
+        +'<span class="'+x.prediction+'">'+x.prediction+'</span>'
+        +'<span class="p">P(R) '+x.p_resistant+'</span>'
+        +'<span class="band">['+bar+'] '+rel.band+'/'+rel.of
+        +(rel.capped_by_tier?' capped':'')+'</span>'
+        +'<span class="p">'+esc(x.confidence.tier||'undeclared')
+        +' · AUC '+(x.confidence.auc??'—')+'</span></summary>';
+      if(x.reasons.length){
+        h+='<div class="scroll"><table><tr><th>Mutation</th><th>Coefficient</th>'
+          +'<th>Logit</th><th>Target</th><th>Role</th></tr>';
+        for(const m of x.reasons)
+          h+='<tr><td>'+esc(m.mutation)+'</td><td>'+m.coefficient.toFixed(3)+'</td><td>'
+            +m.logit_contribution.toFixed(3)+'</td><td>'
+            +(m.on_target?'on-target':'OFF-target')+'</td><td>'+esc(m.role)+'</td></tr>';
+        h+='</table></div>';
+      } else {
+        h+='<p class="sub">No modelled mutation carried; the call rests on the intercept alone.</p>';
+      }
+      h+='<pre>'+esc(x.confidence.caveat)+'</pre></details>';
     }
-    h+='</table></div></div>';
-    const q=new URLSearchParams(); // re-post for the download
-    h+='<div class="card"><button id="dl">Download results (.zip)</button></div>';
+    h+='</div><div class="card"><div class="row">'
+      +'<button id="dlzip">Download all (.zip)</button>'
+      +'<button id="dltsv">predictions.tsv</button>'
+      +'<button id="dltxt">reasoning.txt</button></div></div>';
     out.innerHTML=h;
-    document.getElementById('dl').onclick=async()=>{
+    const grab=async(fmt,name)=>{
       const fd2=new FormData(); fd2.append('vcf',document.getElementById('vcf').files[0]);
-      fd2.append('lineage',document.getElementById('lineage').value); fd2.append('fmt','zip');
+      fd2.append('lineage',document.getElementById('lineage').value); fd2.append('fmt',fmt);
       const rz=await fetch('predict',{method:'POST',body:fd2});
       const b=await rz.blob(), a=document.createElement('a');
-      a.href=URL.createObjectURL(b); a.download='predictions.zip'; a.click();
+      a.href=URL.createObjectURL(b); a.download=name; a.click(); URL.revokeObjectURL(a.href);
     };
+    document.getElementById('dlzip').onclick=()=>grab('zip','predictions.zip');
+    document.getElementById('dltsv').onclick=()=>grab('tsv','predictions.tsv');
+    document.getElementById('dltxt').onclick=()=>grab('txt','reasoning.txt');
   }catch(err){ out.innerHTML='<div class="note">'+err+'</div>'; }
   finally{ go.disabled=false; go.textContent='Predict'; }
 });

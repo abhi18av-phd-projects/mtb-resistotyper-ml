@@ -24,7 +24,8 @@ from pathlib import Path
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 
-from mtb_resistotyper_ml import ModelBundle, explain, fired, score, vectorize
+from mtb_resistotyper_ml import __version__, ModelBundle, explain, fired, score, vectorize
+from mtb_resistotyper_ml.report import render
 
 from vcf_to_garc import ReferenceUnavailable, sample_ids, to_instance, variants_from_vcf
 
@@ -32,6 +33,30 @@ MODELS = Path(os.environ.get("MTB_MODELS", "/opt/models"))
 REFERENCE = Path(os.environ.get("MTB_REFERENCE_GENBANK", "/opt/reference/NC_000962.3.gbk"))
 
 app = FastAPI(title="mtb-resistotyper-ml", version="0.1.0")
+
+DOWNLOAD_README = """mtb-resistotyper-ml predictions
+===============================
+
+predictions.tsv   one row per drug, with the reasoning flattened into a column
+predictions.json  the full structured result, including every contribution
+reasoning.txt     the same rendering `mtb-resistotyper-ml predict` prints
+
+These are Layer 2 model calls. No curated WHO catalogue was consulted, so
+nothing here overrides a catalogue result; the models are intended for variants
+a catalogue grades Unknown or Fail.
+
+Each row carries the operating range declared by the bundle that produced it,
+and a reliability band from 1 to 5. The band is the margin between the two class
+probabilities, capped by that bundle's tier: a margin says how far apart this
+model held the classes on this isolate, not whether the model is any good, so
+the cap keeps a confident-looking margin from an indifferent model in its place.
+
+Research use only. Not prospectively validated.
+
+Reproduce any row with the same runner:
+    pip install mtb-resistotyper-ml
+    mtb-resistotyper-ml predict --input <instance.json> --model <bundle-dir>
+"""
 
 
 def available_drugs() -> list[str]:
@@ -41,45 +66,71 @@ def available_drugs() -> list[str]:
 
 
 def score_instance(instance: dict) -> list[dict]:
-    rows = []
+    """Score one isolate against every deployed bundle.
+
+    The result objects are byte-for-byte the shape ``mtb-resistotyper-ml predict
+    --json`` produces, and each is rendered with the same ``report.render`` the
+    command line prints. The service and the command line are then two front
+    ends over one reasoning path rather than two implementations of it, so a
+    laboratory cannot be shown one explanation on the web and another at a
+    prompt for the same isolate.
+    """
+    results = []
     for drug in available_drugs():
         bundle = ModelBundle.load(MODELS / drug)
         if not bundle.schema:
             continue
-        row_features = vectorize(instance, bundle.schema)
-        scored = score(bundle, row_features)
-        reasoning = explain(scored, drug)
-        rng = scored.get("operating_range", {})
-        rows.append({
+        row = vectorize(instance, bundle.schema)
+        scored = score(bundle, row)
+        results.append({
             "sample_id": instance["sample_id"],
-            "drug": drug,
-            "prediction": scored["prediction"],
-            "p_resistant": scored["p_resistant"],
-            "tier": rng.get("tier"),
-            "auc": rng.get("auc"),
-            "metric": rng.get("metric"),
-            "n_mutations_carried": len(fired(row_features)),
-            "primary_drivers": reasoning["primary_drivers"],
-            "passengers_flagged": reasoning["passengers_flagged"],
-            "caveat": reasoning["confidence"]["caveat"],
-            "layer": 2,
-            "catalogue_consulted": False,
+            "lineage": instance.get("covariates", {}).get("lineage"),
+            "n_mutations_carried": len(fired(row)),
+            **scored,
+            **explain(scored, bundle.drug),
+            "provenance": {
+                "runner": f"mtb-resistotyper-ml {__version__}",
+                "model_card": bundle.card.get("provenance", {}),
+                "layer": 2,
+                "catalogue_consulted": False,
+            },
         })
-    return rows
+    return results
 
 
-def rows_to_tsv(rows: list[dict]) -> str:
-    cols = ["sample_id", "drug", "prediction", "p_resistant", "tier", "auc",
-            "n_mutations_carried", "primary_drivers", "passengers_flagged",
+def rows_to_tsv(results: list[dict]) -> str:
+    """One row per drug. The reasoning is flattened, not dropped: every carried
+    mutation appears with its signed logit contribution, so the table can be read
+    without the JSON beside it."""
+    cols = ["sample_id", "drug", "prediction", "p_resistant", "reliability_band",
+            "reliability_margin", "tier", "auc", "n_mutations_carried",
+            "primary_drivers", "passengers_flagged", "reasoning",
             "layer", "catalogue_consulted"]
     buf = io.StringIO()
     w = csv.DictWriter(buf, fieldnames=cols, delimiter="\t", extrasaction="ignore")
     w.writeheader()
-    for r in rows:
-        w.writerow({**r,
-                    "primary_drivers": ";".join(r["primary_drivers"]),
-                    "passengers_flagged": ";".join(r["passengers_flagged"])})
+    for r in results:
+        rel, conf = r["reliability"], r["confidence"]
+        w.writerow({
+            "sample_id": r["sample_id"], "drug": r["drug"],
+            "prediction": r["prediction"], "p_resistant": r["p_resistant"],
+            "reliability_band": f"{rel['band']}/{rel['of']}",
+            "reliability_margin": rel["margin"],
+            "tier": conf.get("tier") or "undeclared", "auc": conf.get("auc"),
+            "n_mutations_carried": r["n_mutations_carried"],
+            "primary_drivers": ";".join(r["primary_drivers"]) or "-",
+            "passengers_flagged": ";".join(r["passengers_flagged"]) or "-",
+            "reasoning": ";".join(
+                f"{x['mutation']}({x['role']},logit{x['logit_contribution']:+.3f})"
+                for x in r["reasons"]) or "intercept only",
+            "layer": 2, "catalogue_consulted": False,
+        })
     return buf.getvalue()
+
+
+def rows_to_text(results: list[dict]) -> str:
+    """The command line's own rendering, one block per drug."""
+    return ("\n\n" + "-" * 72 + "\n\n").join(render(r) for r in results)
 
 
 @app.get("/health")
@@ -123,6 +174,9 @@ async def predict(vcf: UploadFile | None = File(default=None),
 
     rows = [r for inst in instances for r in score_instance(inst)]
 
+    if fmt == "txt":
+        return Response(rows_to_text(rows), media_type="text/plain",
+                        headers={"Content-Disposition": "attachment; filename=reasoning.txt"})
     if fmt == "tsv":
         return Response(rows_to_tsv(rows), media_type="text/tab-separated-values",
                         headers={"Content-Disposition": "attachment; filename=predictions.tsv"})
@@ -131,10 +185,8 @@ async def predict(vcf: UploadFile | None = File(default=None),
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
             z.writestr("predictions.tsv", rows_to_tsv(rows))
             z.writestr("predictions.json", json.dumps(rows, indent=2))
-            z.writestr("README.txt",
-                       "Layer 2 model predictions. No curated catalogue was consulted.\n"
-                       "Each row carries the operating range of the bundle that produced it.\n"
-                       "Research use only; not prospectively validated.\n")
+            z.writestr("reasoning.txt", rows_to_text(rows))
+            z.writestr("README.txt", DOWNLOAD_README)
         return Response(buf.getvalue(), media_type="application/zip",
                         headers={"Content-Disposition": "attachment; filename=predictions.zip"})
     return JSONResponse(rows)

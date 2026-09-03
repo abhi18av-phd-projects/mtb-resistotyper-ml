@@ -23,6 +23,14 @@ def render(result: dict) -> str:
     else:
         add("tier       UNDECLARED — this bundle states no operating range")
 
+    rel = result.get("reliability")
+    if rel:
+        bar = "#" * rel["band"] + "." * (rel["of"] - rel["band"])
+        capped = ("  (capped: intercept only)" if rel.get("capped_by_evidence")
+                  else "  (capped by tier)" if rel["capped_by_tier"] else "")
+        add(f"reliability {rel['band']}/{rel['of']}  [{bar}]  "
+            f"margin {rel['margin']:.3f}{capped}")
+
     reasons = result.get("reasons", [])
     add("")
     add(f"reasons    {len(reasons)} mutation(s) carried")
