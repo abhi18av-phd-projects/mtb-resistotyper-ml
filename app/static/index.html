@@ -45,11 +45,10 @@
      signed contribution of every mutation that moved it.</p>
 
   <div class="note">
-    <strong>Research use only. Not a diagnostic.</strong> These are Layer 2 machine-learning
-    calls from models that have not been prospectively validated and have no regulatory
-    clearance. No curated WHO catalogue is consulted here, so every call is a model call and
-    none overrides a catalogue result; the models are intended for variants a catalogue grades
-    Unknown or Fail. Do not use any output on this page to guide the treatment of a patient.
+    <strong>Research use only. Not a diagnostic.</strong> Drugs the WHO catalogue can grade are
+    answered by the catalogue (Layer 1). Everything else is answered by machine-learning models
+    that have not been prospectively validated and have no regulatory clearance (Layer 2). Each
+    row says which. Do not use any output on this page to guide the treatment of a patient.
   </div>
   <div class="note">
     <strong>Uploads are not retained.</strong> A submitted VCF is written to a temporary file,
@@ -86,20 +85,23 @@ f.addEventListener('submit',async e=>{
     let h='<div class="card">';
     for(const x of rows){
       const rel=x.reliability, bar='#'.repeat(rel.band)+'.'.repeat(rel.of-rel.band);
+      const pr=(x.p_resistant!=null)?'P(R) '+x.p_resistant:'catalogue-graded';
       h+='<details><summary><span>'+esc(x.drug)+'</span>'
         +'<span class="'+x.prediction+'">'+x.prediction+'</span>'
-        +'<span class="p">P(R) '+x.p_resistant+'</span>'
+        +'<span class="p">'+pr+'</span>'
         +'<span class="band">['+bar+'] '+rel.band+'/'+rel.of
         +(rel.capped_by_tier?' capped':'')+'</span>'
-        +'<span class="p">'+esc(x.confidence.tier||'undeclared')
-        +' · AUC '+(x.confidence.auc??'—')+'</span></summary>';
+        +'<span class="p">'+esc(x.source||'model')+' · L'+(x.layer??2)
+        +(x.confidence.auc!=null?' · AUC '+x.confidence.auc:'')+'</span></summary>';
       if(x.reasons.length){
         h+='<div class="scroll"><table><tr><th>Mutation</th><th>Coefficient</th>'
           +'<th>Logit</th><th>Target</th><th>Role</th></tr>';
         for(const m of x.reasons)
-          h+='<tr><td>'+esc(m.mutation)+'</td><td>'+m.coefficient.toFixed(3)+'</td><td>'
-            +m.logit_contribution.toFixed(3)+'</td><td>'
-            +(m.on_target?'on-target':'OFF-target')+'</td><td>'+esc(m.role)+'</td></tr>';
+          h+='<tr><td>'+esc(m.mutation)+'</td><td>'
+            +(m.coefficient!=null?m.coefficient.toFixed(3):'—')+'</td><td>'
+            +(m.logit_contribution!=null?m.logit_contribution.toFixed(3):esc(m.call||'—'))
+            +'</td><td>'+(m.on_target?'on-target':'OFF-target')+'</td><td>'
+            +esc(m.role)+'</td></tr>';
         h+='</table></div>';
       } else {
         h+='<p class="sub">No modelled mutation carried; the call rests on the intercept alone.</p>';

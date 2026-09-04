@@ -1,0 +1,42 @@
+{
+  "_note": "Cases chosen by set difference between each model's feature_schema.json and WHO v2.1 (GARC1), not by intuition. Across the eight deployed bundles, 223 modelled mutations map to only 66 catalogue entries: 157 are absent from the catalogue entirely and 6 are graded U/F. Layer 2's remit is therefore most of what the models describe, and these cases exercise the boundary rather than sampling near it.",
+
+  "layer1-graded-resistant": {
+    "why": "rpoB@S450L is graded R by WHO v2.1. The catalogue must answer, and the RIF model must not run.",
+    "variants": [{"gene": "rpoB", "mutation": "S450L"}],
+    "expect": {"RIF": {"source": "WHO catalogue", "layer": 1, "prediction": "R"}}
+  },
+
+  "layer1-graded-across-drugs": {
+    "why": "katG@S315T is graded for INH but absent from the RIF catalogue while being a RIF model feature. One variant, two layers: the boundary is per drug, not per isolate.",
+    "variants": [{"gene": "katG", "mutation": "S315T"}],
+    "expect": {"INH": {"source": "WHO catalogue", "layer": 1},
+               "RIF": {"source": "model", "layer": 2}}
+  },
+
+  "layer2-catalogue-absent": {
+    "why": "rpoB@A692T is a RIF model feature that WHO v2.1 grades U. The model must fire AND must show its reasoning: this is the case the tool exists for. rpoB@D435Z is deliberately NOT used here despite being absent from the catalogue as a literal string -- piezo grades it R through the Z wildcard, which is how this case first failed. Literal set difference against the MUTATION column understates catalogue coverage; only piezo knows what the catalogue actually grades.",
+    "variants": [{"gene": "rpoB", "mutation": "A692T"}],
+    "expect": {"RIF": {"source": "model", "layer": 2, "reasoning_non_empty": true}}
+  },
+
+  "layer2-catalogue-ungraded": {
+    "why": "inhA@I21T and inhA@I194T are graded U by WHO v2.1 -- present but of uncertain significance. U is not a call, so the model answers. This is the case the paper's framing names explicitly.",
+    "variants": [{"gene": "inhA", "mutation": "I21T"}, {"gene": "inhA", "mutation": "I194T"}],
+    "expect": {"INH": {"source": "model", "layer": 2, "reasoning_non_empty": true}}
+  },
+
+  "layer2-no-variants": {
+    "why": "Nothing carried. The catalogue grades nothing, the model answers from the intercept, and the reliability band must be capped for want of evidence.",
+    "variants": [],
+    "expect": {"RIF": {"source": "model", "layer": 2, "reliability_capped_by_evidence": true}}
+  },
+
+  "mixed-isolate": {
+    "why": "A realistic MDR isolate: RIF and INH graded by the catalogue, EMB left to the model. A single report must carry rows from both layers and label each.",
+    "variants": [{"gene": "rpoB", "mutation": "S450L"},
+                 {"gene": "katG", "mutation": "S315T"},
+                 {"gene": "embA", "mutation": "c-12t"}],
+    "expect": {"RIF": {"layer": 1}, "INH": {"layer": 1}, "EMB": {"source": "model", "layer": 2}}
+  }
+}

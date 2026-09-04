@@ -1,14 +1,22 @@
-"""Resistotyping service: VCF in, predictions out.
+"""Resistotyping service: VCF in, predictions out, two layers deep.
 
-Layer 2 only. These models are meant to fire where a curated catalogue returns
-Unknown or Fail, and the catalogue layer is not wired in here, so every call this
-service makes is a model call and is labelled as such. Nothing it returns
-overrides a catalogue, because it never consults one.
+Layer 1 is the curated WHO catalogue read by piezo. Layer 2 is this project's
+models. They do not vote: a drug the catalogue can grade is answered by the
+catalogue and the model is not consulted for it at all, because a curated
+assessment backed by phenotype evidence is not improved by averaging it with a
+logistic regression. The models answer only where the catalogue is silent, which
+is the role the paper claims for them.
 
-Every prediction carries the operating range of the bundle that produced it,
-read from that bundle's card rather than from a table in this service. A model
-retrained to a different range is then reported with its own range, and a bundle
-declaring none is reported as unvalidated rather than silently assigned one.
+Every row says which layer produced it. A Layer 2 row also carries the operating
+range of the bundle that produced it, read from that bundle's card rather than
+from a table in this service, so a model retrained to a different range is
+reported with its own range and a bundle declaring none is reported as
+unvalidated rather than silently assigned one.
+
+If the catalogue cannot be loaded the service still answers, from models alone,
+and says so: `catalogue_consulted` is false. That distinction matters. A model
+call made after the catalogue declined to grade a variant is a different claim
+from a model call made without asking.
 """
 
 from __future__ import annotations
@@ -24,7 +32,8 @@ from pathlib import Path
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 
-from mtb_resistotyper_ml import __version__, ModelBundle, explain, fired, score, vectorize
+from mtb_resistotyper_ml import (__version__, ModelBundle, catalogue, explain,
+                                 fired, score, vectorize)
 from mtb_resistotyper_ml.report import render
 
 from vcf_to_garc import ReferenceUnavailable, sample_ids, to_instance, variants_from_vcf
@@ -45,9 +54,11 @@ RESEARCH USE ONLY. NOT A DIAGNOSTIC. These models have not been prospectively
 validated and have no regulatory clearance. Do not use any value in these files
 to guide the treatment of a patient.
 
-These are Layer 2 model calls. No curated WHO catalogue was consulted, so
-nothing here overrides a catalogue result; the models are intended for variants
-a catalogue grades Unknown or Fail.
+Each row names the layer that produced it. Layer 1 rows are graded by the WHO
+catalogue (via piezo) and no model was consulted for that drug. Layer 2 rows are
+this project's models, answering for variants the catalogue could not grade. The
+`catalogue_consulted` column says whether Layer 1 actually ran; if it is false,
+the catalogue was unavailable and the row rests on the model alone.
 
 Each row carries the operating range declared by the bundle that produced it,
 and a reliability band from 1 to 5. The band is the margin between the two class
@@ -79,8 +90,53 @@ def score_instance(instance: dict) -> list[dict]:
     laboratory cannot be shown one explanation on the web and another at a
     prompt for the same isolate.
     """
+    # Layer 1 first. Everything the catalogue can grade is answered by the
+    # catalogue, and the model is not consulted for that drug at all.
+    variants = instance.get("variants", [])
+    try:
+        cat_available = True
+        cat_version = catalogue.version()
+    except Exception:
+        cat_available = False
+        cat_version = None
+
     results = []
     for drug in available_drugs():
+        if cat_available:
+            try:
+                graded = catalogue.grade(variants, drug)
+            except catalogue.CatalogueUnavailable:
+                cat_available, graded = False, {"prediction": None}
+            if graded["prediction"] is not None:
+                results.append({
+                    "sample_id": instance["sample_id"],
+                    "lineage": instance.get("covariates", {}).get("lineage"),
+                    "drug": drug,
+                    "prediction": graded["prediction"],
+                    "layer": 1,
+                    "source": "WHO catalogue",
+                    "n_mutations_carried": len(graded["graded"]),
+                    "primary_drivers": [h["mutation"] for h in graded["graded"]
+                                        if h["call"] == "R"],
+                    "passengers_flagged": [],
+                    "reasons": [{"mutation": h["mutation"], "call": h["call"],
+                                 "role": "catalogue-graded", "on_target": True}
+                                for h in graded["graded"]],
+                    "ungraded_variants": graded["ungraded"],
+                    "reliability": {"band": 5, "of": 5, "margin": None,
+                                    "capped_by_tier": False, "capped_by_evidence": False,
+                                    "evidence": "curated catalogue entry",
+                                    "basis": "graded by the WHO catalogue, not modelled"},
+                    "confidence": {"tier": "catalogue", "auc": None,
+                                   "caveat": "Graded by "
+                                   f"{graded['catalogue']['catalogue']} "
+                                   f"{graded['catalogue']['version']}. No model was "
+                                   "consulted for this drug."},
+                    "provenance": {"runner": f"mtb-resistotyper-ml {__version__}",
+                                   "catalogue": graded["catalogue"],
+                                   "layer": 1, "catalogue_consulted": True},
+                })
+                continue
         bundle = ModelBundle.load(MODELS / drug)
         if not bundle.schema:
             continue
@@ -92,11 +148,17 @@ def score_instance(instance: dict) -> list[dict]:
             "n_mutations_carried": len(fired(row)),
             **scored,
             **explain(scored, bundle.drug),
+            "layer": 2,
+            "source": "model",
             "provenance": {
                 "runner": f"mtb-resistotyper-ml {__version__}",
                 "model_card": bundle.card.get("provenance", {}),
                 "layer": 2,
-                "catalogue_consulted": False,
+                # True once Layer 1 ran and returned nothing gradable: the model
+                # is then answering a question the catalogue declined, which is
+                # a materially different claim from never having asked.
+                "catalogue_consulted": cat_available,
+                "catalogue": cat_version,
             },
         })
     return results
@@ -106,10 +168,10 @@ def rows_to_tsv(results: list[dict]) -> str:
     """One row per drug. The reasoning is flattened, not dropped: every carried
     mutation appears with its signed logit contribution, so the table can be read
     without the JSON beside it."""
-    cols = ["sample_id", "drug", "prediction", "p_resistant", "reliability_band",
-            "reliability_margin", "tier", "auc", "n_mutations_carried",
-            "primary_drivers", "passengers_flagged", "reasoning",
-            "layer", "catalogue_consulted"]
+    cols = ["sample_id", "drug", "prediction", "source", "layer", "p_resistant",
+            "reliability_band", "reliability_margin", "tier", "auc",
+            "n_mutations_carried", "primary_drivers", "passengers_flagged",
+            "reasoning", "catalogue_consulted"]
     buf = io.StringIO()
     w = csv.DictWriter(buf, fieldnames=cols, delimiter="\t", extrasaction="ignore")
     w.writeheader()
@@ -117,9 +179,9 @@ def rows_to_tsv(results: list[dict]) -> str:
         rel, conf = r["reliability"], r["confidence"]
         w.writerow({
             "sample_id": r["sample_id"], "drug": r["drug"],
-            "prediction": r["prediction"], "p_resistant": r["p_resistant"],
+            "prediction": r["prediction"], "p_resistant": r.get("p_resistant", ""),
             "reliability_band": f"{rel['band']}/{rel['of']}",
-            "reliability_margin": rel["margin"],
+            "reliability_margin": rel["margin"] if rel["margin"] is not None else "",
             "tier": conf.get("tier") or "undeclared", "auc": conf.get("auc"),
             "n_mutations_carried": r["n_mutations_carried"],
             "primary_drivers": ";".join(r["primary_drivers"]) or "-",
@@ -127,7 +189,9 @@ def rows_to_tsv(results: list[dict]) -> str:
             "reasoning": ";".join(
                 f"{x['mutation']}({x['role']},logit{x['logit_contribution']:+.3f})"
                 for x in r["reasons"]) or "intercept only",
-            "layer": 2, "catalogue_consulted": False,
+            "layer": r.get("layer", 2),
+            "source": r.get("source", "model"),
+            "catalogue_consulted": r["provenance"].get("catalogue_consulted", False),
         })
     return buf.getvalue()
 
@@ -139,8 +203,15 @@ def rows_to_text(results: list[dict]) -> str:
 
 @app.get("/health")
 def health() -> dict:
+    try:
+        cat = catalogue.version()
+        catalogue.grade([], "RIF")          # forces the load
+        cat_ok = True
+    except Exception as exc:
+        cat, cat_ok = {"error": str(exc)}, False
     return {"status": "ok", "drugs": available_drugs(),
-            "reference_present": REFERENCE.exists()}
+            "reference_present": REFERENCE.exists(),
+            "catalogue_available": cat_ok, "catalogue": cat}
 
 
 @app.post("/predict")
