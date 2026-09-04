@@ -21,6 +21,8 @@ same isolate.
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import csv
 import io
 import json
@@ -45,6 +47,52 @@ REFERENCE = Path(os.environ.get("MTB_REFERENCE_GENBANK", "/opt/reference/NC_0009
 HERE = Path(__file__).parent
 
 app = FastAPI(title="mtb-resistotyper-ml", version=__version__)
+
+_SWEEP_STATE: dict = {"last": None, "result": None, "lifecycle": None}
+
+
+async def _retention_loop() -> None:
+    """Apply the expiry rule, then sweep daily.
+
+    The rule is primary: it is server-side, so it keeps expiring uploads even if
+    this process is stopped, redeployed, or crash-looping. The sweep is the
+    backstop, because a lifecycle rule that was never applied fails silently and
+    looks exactly like one that is working. Both report through /health, so the
+    difference is visible without reading a log.
+    """
+    while True:
+        try:
+            _SWEEP_STATE["lifecycle"] = storage.ensure_lifecycle()
+        except Exception as exc:
+            _SWEEP_STATE["lifecycle"] = {"error": str(exc)[:200]}
+        try:
+            _SWEEP_STATE["result"] = storage.sweep_anonymous()
+        except Exception as exc:
+            _SWEEP_STATE["result"] = {"error": str(exc)[:200]}
+        _SWEEP_STATE["last"] = __import__("datetime").datetime.now(
+            __import__("datetime").timezone.utc).isoformat()
+        await asyncio.sleep(24 * 3600)
+
+
+@app.on_event("startup")
+async def _start_retention() -> None:
+    if storage.anon_enabled():
+        app.state.retention = asyncio.create_task(_retention_loop())
+
+
+@app.on_event("shutdown")
+async def _stop_retention() -> None:
+    task = getattr(app.state, "retention", None)
+    if task:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+
+
+@app.post("/admin/sweep")
+def sweep(dry_run: bool = True) -> dict:
+    """Run the retention sweep now. Defaults to a dry run so a probe cannot delete."""
+    return storage.sweep_anonymous(dry_run=dry_run)
 
 DOWNLOAD_README = """mtb-resistotyper-ml predictions
 ===============================
@@ -153,6 +201,8 @@ def health() -> dict:
     try:
         storage.list_vcfs(limit=1)
         store_ok = True
+    except storage.ListingDisabled:
+        store_ok = True          # listing is off by policy; storage itself is fine
     except Exception:
         store_ok = False
     return {"status": "ok", "version": __version__, "drugs": available_drugs(),
@@ -160,7 +210,17 @@ def health() -> dict:
             "bcftools": normalise.available(),
             "catalogue_available": cat_ok, "catalogue": cat,
             "storage_available": store_ok, "bucket": storage.BUCKET,
-            "prefixes": storage.PREFIXES}
+            "listing_enabled": bool(storage.LIST_PREFIXES),
+            "list_prefixes": storage.LIST_PREFIXES,
+            "anonymous_uploads": storage.anon_enabled(),
+            "retention": {
+                "hours": storage.ANON_RETENTION_HOURS,
+                "prefix": storage.ANON_PREFIX,
+                "max_upload_bytes": storage.ANON_MAX_BYTES,
+                "bucket_rule": storage.lifecycle_state() if storage.anon_enabled() else None,
+                "last_sweep": _SWEEP_STATE["last"],
+                "last_sweep_result": _SWEEP_STATE["result"],
+            }}
 
 
 @app.get("/objects")
@@ -168,6 +228,8 @@ def objects() -> JSONResponse:
     """VCFs already uploaded to the group bucket."""
     try:
         return JSONResponse(storage.list_vcfs())
+    except storage.ListingDisabled as exc:
+        raise HTTPException(403, str(exc)) from exc
     except storage.StorageUnavailable as exc:
         raise HTTPException(503, str(exc)) from exc
 
@@ -194,11 +256,22 @@ async def predict(object_key: str | None = Form(default=None),
                 instances = _instances_from_vcf(local, lineage, work / "norm")
                 source = {"kind": "object", "bucket": storage.BUCKET, "key": object_key}
             elif vcf is not None:
+                raw = await vcf.read()
                 local = work / "in" / (vcf.filename or "upload.vcf")
                 local.parent.mkdir(parents=True, exist_ok=True)
-                local.write_bytes(await vcf.read())
-                instances = _instances_from_vcf(local, lineage, work / "norm")
+                local.write_bytes(raw)
                 source = {"kind": "upload", "filename": vcf.filename}
+                if storage.anon_enabled():
+                    # Retained briefly so a tester can re-run without re-uploading,
+                    # and expired by the bucket rule so "briefly" is enforced by the
+                    # store rather than promised by this code.
+                    try:
+                        key = storage.store_anonymous(raw, vcf.filename or "upload.vcf")
+                        source |= {"stored_key": key,
+                                   "retention_hours": storage.ANON_RETENTION_HOURS}
+                    except storage.StorageUnavailable as exc:
+                        source["not_stored"] = str(exc)
+                instances = _instances_from_vcf(local, lineage, work / "norm")
             else:
                 raise HTTPException(400, "supply object_key, a vcf file, or instance_json")
         except storage.StorageUnavailable as exc:

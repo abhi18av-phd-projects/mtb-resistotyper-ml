@@ -11,7 +11,7 @@ framework: custom
 
 # Built by deploy/webapp/bring-up.sh. "aither.local" is the platform's
 # local-image naming convention, not a live registry: docker push always fails.
-image: aither.local/mtb-resistotyper-webapp:v0.2.0
+image: aither.local/mtb-resistotyper-webapp:v0.2.1
 
 port: 8080
 health: /health
@@ -38,10 +38,28 @@ env:
   # mover writes user/<slot>/data/. The service refuses any key outside these,
   # so a prediction endpoint cannot be used as a general read oracle for the
   # group bucket.
-  MTB_PREFIXES: "user/abhinav/,users/abhi/,shared/"
+  MTB_PREFIXES: "user/abhinav/,users/abhi/,shared/,anon-uploads/"
 
-# Read-only: this service reads what a researcher already uploaded and writes
-# nothing back. Results are returned to the browser, not deposited in the bucket.
+  # Enumeration is a separate permission from reading, and the dangerous one:
+  # object keys in a research group's bucket routinely carry sample and patient
+  # identifiers, so listing them discloses who was sequenced even when nothing is
+  # read. Left empty, /objects returns 403. Set it only to a curated demo prefix
+  # on a publicly reachable deployment.
+  MTB_LIST_PREFIXES: ""
+
+  # Anonymous uploads: a deliberate testing affordance. Nobody knows who uploaded
+  # an anonymous clinical VCF or under what basis, so there is no one to ask and
+  # no consent recorded. Retention is therefore short and enforced by the object
+  # store, not promised by the application.
+  MTB_ANON_UPLOADS: "1"
+  MTB_ANON_PREFIX: "anon-uploads/"
+  MTB_ANON_RETENTION_HOURS: "24"
+  MTB_ANON_MAX_BYTES: "67108864"
+
+# Read-write, and only because of anonymous uploads: the service stores them
+# under anon-uploads/ so a tester can re-run without re-uploading, and applies
+# the bucket lifecycle rule that expires them. Results are still returned to the
+# browser rather than deposited in the bucket.
 data:
   - bucket: su-mbhg-bioinformatics
-    access: read
+    access: read-write
