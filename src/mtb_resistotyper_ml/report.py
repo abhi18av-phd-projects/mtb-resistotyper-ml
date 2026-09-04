@@ -41,6 +41,13 @@ def render(result: dict) -> str:
     if not reasons:
         add("  none — the call rests on the intercept alone")
 
+    chain = result.get("causal_chain")
+    if chain:
+        from mtb_resistotyper_ml.explain import render_chain
+        add("")
+        add("reasoning chain")
+        add(render_chain(chain))
+
     add("")
     add("note       " + conf.get("caveat", ""))
     return "\n".join(lines)

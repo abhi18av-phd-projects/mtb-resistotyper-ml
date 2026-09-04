@@ -112,3 +112,66 @@ def test_model_rows_state_their_training_data() -> None:
     if r["layer"] != 2:
         pytest.skip("catalogue graded this variant; not a Layer 2 row")
     assert r["provenance"]["model_card"], "Layer 2 row carries no model provenance"
+
+
+@needs
+def test_model_calls_carry_a_causal_chain() -> None:
+    """A model call must be able to say how it got there, and a catalogue grade must not pretend to.
+
+    The chain is the difference between a probability and a reason. It is also
+    where the tool is required to be honest about which of its contributors carry
+    a mechanistic reading and which are only co-occurrence, so both halves of
+    step 4 are asserted rather than the chain merely being non-empty.
+    """
+    rows = _score([{"gene": "embA", "mutation": "c-11a"},
+                   {"gene": "katG", "mutation": "S315T"}])
+
+    for drug, r in rows.items():
+        if r["layer"] == 1:
+            assert "causal_chain" not in r, (
+                f"{drug}: a catalogue grade is a citation of somebody else's curated "
+                f"judgement, not a chain of inference from this tool's premises")
+            continue
+
+        chain = r.get("causal_chain")
+        assert chain, f"{drug}: model call with no chain"
+        stages = [s["stage"] for s in chain]
+        for required in ("observation", "layer 1 declined", "admission to the model",
+                         "contribution", "aggregation", "bounding"):
+            assert required in stages, f"{drug}: chain is missing '{required}'"
+        assert [s["step"] for s in chain] == list(range(1, len(chain) + 1))
+
+        contribution = next(s for s in chain if s["stage"] == "contribution")
+        assert {"causal_reading_supported", "association_only"} <= set(contribution["detail"]), (
+            f"{drug}: step 4 must separate mechanism from association")
+        for c in contribution["detail"]["association_only"]:
+            assert "not causation" in c["why"], (
+                f"{drug}: an off-target contributor is stated without disclaiming causation")
+
+        admission = next(s for s in chain if s["stage"] == "admission to the model")
+        assert admission["detail"]["selection"], f"{drug}: chain claims selection it cannot cite"
+
+    if all(r["layer"] == 1 for r in rows.values()):
+        pytest.skip("every drug was catalogue-graded; no model chain to check")
+
+
+@needs
+def test_a_call_with_no_mechanism_says_so() -> None:
+    """An isolate carrying only off-target contributors must be warned about.
+
+    This is the quiet failure the chain exists to prevent: a confident-looking
+    resistance call built entirely on lineage co-travellers, presented with the
+    same face as one built on a known determinant.
+    """
+    rows = _score([{"gene": "pks12", "mutation": "R1652C"}])
+    for drug, r in rows.items():
+        chain = r.get("causal_chain")
+        if not chain:
+            continue
+        contribution = next(s for s in chain if s["stage"] == "contribution")
+        if contribution["detail"]["causal_reading_supported"]:
+            continue
+        if not contribution["detail"]["association_only"]:
+            continue
+        assert any(s["stage"] == "warning" for s in chain), (
+            f"{drug}: call rests entirely on associations and the chain does not say so")

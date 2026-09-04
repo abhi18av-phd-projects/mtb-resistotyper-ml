@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mtb-resistotyper-ml"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Runner for versioned Mycobacterium tuberculosis drug-resistance models that declare their own operating range"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -49,3 +49,9 @@ select = ["B", "C4", "E", "F", "I", "RUF", "UP", "W"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.hatch.version]
+# Single source: the package states its own version and the wheel follows.
+# A hand-kept duplicate in pyproject drifts, and a wheel whose metadata
+# disagrees with __version__ is a provenance bug on PyPI.
+path = "src/mtb_resistotyper_ml/version.py"

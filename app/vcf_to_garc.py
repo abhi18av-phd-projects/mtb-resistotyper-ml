@@ -15,6 +15,9 @@ susceptible call.
 
 from __future__ import annotations
 
+import csv
+import json
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -58,8 +61,43 @@ def reference(path: Path | None = None):
     return _CACHE[key]
 
 
-def variants_from_vcf(vcf_path: Path, ref_path: Path | None = None) -> list[Variant]:
-    """VCF -> GARC variants, via gumpy's genome difference."""
+def genes_of_interest(models_dir: Path | None = None) -> set[str]:
+    """Genes any layer can actually act on.
+
+    A clinical isolate differs from H37Rv in hundreds of genes, and gumpy's
+    per-gene diff costs roughly a fifth of a second each. Building all of them
+    took two to four minutes per sample, nearly all of it spent deriving PE and
+    PE_PGRS mutations that no model has a feature for and no catalogue entry
+    mentions. Restricting to the union of the model schemas and the catalogue's
+    own gene set is not an optimisation that trades away information: a gene
+    outside that union cannot change any answer this service gives.
+    """
+    genes: set[str] = set()
+    models = Path(models_dir or os.environ.get("MTB_MODELS", "/opt/models"))
+    if models.exists():
+        for schema in models.glob("*/feature_schema.json"):
+            for f in json.loads(schema.read_text()).get("features", []):
+                if f.get("gene"):
+                    genes.add(f["gene"])
+    cat = Path(os.environ.get("MTB_CATALOGUE", ""))
+    if cat.exists():
+        with cat.open() as fh:
+            for row in csv.DictReader(fh):
+                m = row.get("MUTATION", "")
+                if "@" in m:
+                    genes.add(m.split("@", 1)[0])
+    return genes
+
+
+def variants_from_vcf(vcf_path: Path, ref_path: Path | None = None,
+                      genes: set[str] | None = None) -> list[Variant]:
+    """VCF -> GARC variants, via gumpy's genome difference.
+
+    ``genes`` restricts which genes are reconstructed; it defaults to every gene
+    the models or the catalogue can act on. Pass an empty set to disable the
+    restriction and reconstruct everything, which is slow and only useful when
+    exploring what a sample carries outside the current feature space.
+    """
     try:
         import gumpy
     except ImportError as exc:
@@ -70,15 +108,25 @@ def variants_from_vcf(vcf_path: Path, ref_path: Path | None = None) -> list[Vari
     diff = genome - sample
 
     out: list[Variant] = []
-    for gene_name in sorted(set(diff.gene_name) if hasattr(diff, "gene_name") else []):
-        if not gene_name:
-            continue
+    # gene_name carries None for intergenic differences, and numpy string arrays
+    # do not sort against None. Intergenic positions are dropped rather than
+    # coerced: this feature space is gene-anchored GARC, so a variant with no
+    # gene has no name in it.
+    names = {str(g) for g in getattr(diff, "gene_name", []) if g is not None and str(g)}
+    wanted = genes_of_interest() if genes is None else genes
+    if wanted:
+        names &= wanted
+    for gene_name in sorted(names):
         try:
             g_ref, g_alt = genome.build_gene(gene_name), sample.build_gene(gene_name)
         except Exception:
             continue
         gdiff = g_ref - g_alt
-        for mutation in getattr(gdiff, "mutations", []) or []:
+        # `or []` on a numpy array raises "truth value ... is ambiguous", and
+        # gumpy returns arrays here. Test for None explicitly rather than
+        # leaning on truthiness, which numpy deliberately refuses to define.
+        muts = getattr(gdiff, "mutations", None)
+        for mutation in ([] if muts is None else list(muts)):
             out.append(Variant(gene=gene_name, mutation=str(mutation)))
     return out
 

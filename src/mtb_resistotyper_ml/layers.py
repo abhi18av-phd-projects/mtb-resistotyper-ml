@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from mtb_resistotyper_ml import catalogue as _catalogue
-from mtb_resistotyper_ml.explain import explain
+from mtb_resistotyper_ml.explain import causal_chain, explain
 from mtb_resistotyper_ml.score import ModelBundle, score
 from mtb_resistotyper_ml.vectorize import fired, vectorize
 from mtb_resistotyper_ml.version import __version__
@@ -81,7 +81,7 @@ def resolve(instance: dict, bundle: ModelBundle, *, threshold: float = 0.5,
         raise ValueError(f"{drug}: no feature_schema.json; the input contract is unknown")
     row = vectorize(instance, bundle.schema)
     scored = score(bundle, row, threshold=threshold)
-    return {
+    result = {
         **common,
         "n_mutations_carried": len(fired(row)),
         **scored,
@@ -99,6 +99,11 @@ def resolve(instance: dict, bundle: ModelBundle, *, threshold: float = 0.5,
             "catalogue": _catalogue.version() if use_catalogue else None,
         },
     }
+    # Only model rows carry a chain. A catalogue grade is not a chain of
+    # inference from this tool's premises; it is a citation of somebody else's
+    # curated judgement, and dressing it up as reasoning would misrepresent both.
+    result["causal_chain"] = causal_chain(result, bundle.card)
+    return result
 
 
 def resolve_all(instance: dict, models_dir: Path, *, threshold: float = 0.5,

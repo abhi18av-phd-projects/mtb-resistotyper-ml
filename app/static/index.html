@@ -2,128 +2,201 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
  :root{--ink:#101821;--muted:#697a8a;--line:#d9e1e9;--bg:#f7f9fb;--card:#fff;
-       --accent:#0072b2;--warn:#d55e00}
+       --accent:#0072b2;--warn:#d55e00;--ok:#009e73}
  @media(prefers-color-scheme:dark){:root{--ink:#e6ecf2;--muted:#8395a5;--line:#26313b;
-       --bg:#0e141a;--card:#161e26;--accent:#57a9dc;--warn:#f0834a}}
+       --bg:#0e141a;--card:#161e26;--accent:#57a9dc;--warn:#f0834a;--ok:#4fc3a1}}
  *{box-sizing:border-box}
  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,sans-serif}
- .wrap{max-width:760px;margin:0 auto;padding:40px 22px 70px}
+ .wrap{max-width:820px;margin:0 auto;padding:38px 22px 70px}
  h1{font-size:25px;margin:0 0 4px;letter-spacing:-.01em}
- p.sub{margin:0 0 26px;color:var(--muted);max-width:60ch}
+ h2{font-size:13px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);
+    margin:0 0 12px;font-weight:700}
+ p.sub{margin:0 0 22px;color:var(--muted);max-width:64ch}
  .card{background:var(--card);border:1px solid var(--line);border-radius:11px;
-       padding:20px;margin-bottom:16px}
+       padding:19px;margin-bottom:15px}
  label{display:block;font-size:13px;font-weight:600;margin:0 0 6px}
  input,select,button{font:inherit}
  input[type=file],select{width:100%;padding:9px;border:1px solid var(--line);
-       border-radius:7px;background:var(--bg);color:var(--ink);margin-bottom:14px}
+       border-radius:7px;background:var(--bg);color:var(--ink);margin-bottom:13px}
  button{background:var(--accent);color:#fff;border:0;border-radius:7px;
-        padding:10px 18px;font-weight:600;cursor:pointer}
+        padding:10px 17px;font-weight:600;cursor:pointer}
+ button.ghost{background:transparent;color:var(--accent);border:1px solid var(--line)}
  button:disabled{opacity:.55;cursor:progress}
  .note{border-left:3px solid var(--warn);padding:11px 14px;background:var(--card);
-       border-radius:8px;font-size:13.5px;color:var(--muted);margin-bottom:16px}
+       border-radius:8px;font-size:13.5px;color:var(--muted);margin-bottom:15px}
+ .note.ok{border-left-color:var(--ok)}
  table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:6px}
  th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line)}
  th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
- .R{color:var(--warn);font-weight:600}.S{color:var(--accent);font-weight:600}
- .band{font-family:ui-monospace,monospace;letter-spacing:.12em;font-size:12px}
+ .R{color:var(--warn);font-weight:600}.S{color:var(--ok);font-weight:600}
+ .band{font-family:ui-monospace,monospace;letter-spacing:.11em;font-size:12px}
+ .tag{font-size:11px;padding:2px 7px;border-radius:99px;border:1px solid var(--line);
+      color:var(--muted)}
+ .tag.L1{border-color:var(--ok);color:var(--ok)}
+ .tag.L2{border-color:var(--accent);color:var(--accent)}
  details{border-top:1px solid var(--line);padding:9px 0}
  details:first-of-type{border-top:0}
- summary{cursor:pointer;list-style:none;display:flex;gap:12px;align-items:baseline;
-         flex-wrap:wrap;font-weight:600}
+ summary{cursor:pointer;list-style:none;display:flex;gap:11px;align-items:baseline;flex-wrap:wrap}
  summary::-webkit-details-marker{display:none}
+ summary b{min-width:44px}
  summary .p{font-weight:400;color:var(--muted)}
  pre{background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:11px;
-     overflow-x:auto;font-size:12.5px;margin:9px 0 2px}
- .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+     overflow-x:auto;font-size:12.5px;margin:9px 0 2px;white-space:pre-wrap}
+ .row{display:flex;gap:10px;flex-wrap:wrap}
  .scroll{overflow-x:auto}
  code{background:var(--bg);padding:1px 5px;border-radius:4px;font-size:.9em}
+ .steps{counter-reset:s;list-style:none;padding:0;margin:0 0 20px}
+ .steps li{counter-increment:s;position:relative;padding-left:30px;margin-bottom:6px;
+           color:var(--muted);font-size:13.5px}
+ .steps li::before{content:counter(s);position:absolute;left:0;top:1px;width:20px;height:20px;
+   border-radius:99px;background:var(--card);border:1px solid var(--line);
+   font-size:11px;font-weight:700;display:grid;place-items:center;color:var(--ink)}
 </style>
 <div class="wrap">
   <h1>mtb-resistotyper-ml</h1>
-  <p class="sub">Upload a VCF and receive per-drug resistance predictions. Each call carries the
-     measured operating range of the model that produced it, a reliability band, and the
-     signed contribution of every mutation that moved it.</p>
+  <p class="sub">Two-layer resistance calls for <i>M. tuberculosis</i>. The curated WHO
+     catalogue answers what it can grade; models answer the rest, and every row says which.</p>
+
+  <ol class="steps">
+    <li>Upload a VCF to the cluster — <code>abc data upload &lt;file&gt;</code>, or the browser upload page.</li>
+    <li>Pick it below and run the models against it.</li>
+    <li>Download the predictions, the reasoning, and a record of what was read.</li>
+  </ol>
 
   <div class="note">
-    <strong>Research use only. Not a diagnostic.</strong> Drugs the WHO catalogue can grade are
-    answered by the catalogue (Layer 1). Everything else is answered by machine-learning models
-    that have not been prospectively validated and have no regulatory clearance (Layer 2). Each
-    row says which. Do not use any output on this page to guide the treatment of a patient.
-  </div>
-  <div class="note">
-    <strong>Uploads are not retained.</strong> A submitted VCF is written to a temporary file,
-    converted, and deleted before the response is returned. Nothing is stored, logged to disk,
-    or shared. Even so, this is a public endpoint: do not upload identifiable patient data.
+    <strong>Research use only. Not a diagnostic.</strong> Layer 2 models have not been
+    prospectively validated and have no regulatory clearance. Do not use any output on this
+    page to guide the treatment of a patient.
   </div>
 
-  <form class="card" id="f">
-    <label for="vcf">VCF file</label>
-    <input id="vcf" name="vcf" type="file" accept=".vcf,.vcf.gz" required>
-    <label for="lineage">Lineage (optional; improves covariate handling)</label>
-    <select id="lineage" name="lineage">
+  <div class="card">
+    <h2>1 · Choose an uploaded VCF</h2>
+    <div class="row" style="margin-bottom:12px">
+      <select id="obj" style="flex:1;margin-bottom:0"><option value="">loading…</option></select>
+      <button class="ghost" id="refresh" type="button">Refresh</button>
+    </div>
+    <details>
+      <summary class="p" style="font-size:13px;color:var(--muted)">…or upload a file directly</summary>
+      <p class="sub" style="font-size:13px;margin:8px 0">For a file that is not on the cluster.
+        It is converted and deleted before the response returns; nothing is stored.</p>
+      <input id="vcf" type="file" accept=".vcf,.vcf.gz,.bcf">
+    </details>
+  </div>
+
+  <div class="card">
+    <h2>2 · Run</h2>
+    <label for="lineage">Lineage (optional; a model covariate)</label>
+    <select id="lineage">
       <option value="unknown">unknown</option>
       <option>lineage1</option><option>lineage2</option>
       <option>lineage3</option><option>lineage4</option>
     </select>
-    <button id="go" type="submit">Predict</button>
-  </form>
+    <button id="go" type="button">Predict</button>
+  </div>
 
   <div id="out"></div>
 </div>
 <script>
-const f=document.getElementById('f'),out=document.getElementById('out'),go=document.getElementById('go');
-f.addEventListener('submit',async e=>{
-  e.preventDefault(); go.disabled=true; go.textContent='Scoring…'; out.innerHTML='';
-  const fd=new FormData(); fd.append('vcf',document.getElementById('vcf').files[0]);
-  fd.append('lineage',document.getElementById('lineage').value); fd.append('fmt','json');
+const $=id=>document.getElementById(id), out=$('out');
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const kb=n=>n<1024?n+' B':n<1048576?(n/1024).toFixed(0)+' KB':(n/1048576).toFixed(1)+' MB';
+
+async function loadObjects(){
+  const sel=$('obj'); sel.innerHTML='<option value="">loading…</option>';
+  try{
+    const r=await fetch('objects');
+    if(!r.ok){ sel.innerHTML='<option value="">'+esc((await r.json()).detail||'unavailable')+'</option>'; return; }
+    const rows=await r.json();
+    sel.innerHTML = rows.length
+      ? '<option value="">— select an uploaded VCF —</option>'+rows.map(o=>
+          '<option value="'+esc(o.key)+'">'+esc(o.key)+'  ('+kb(o.size)+', '
+          +esc(o.modified.slice(0,10))+')</option>').join('')
+      : '<option value="">no VCFs found under the configured prefixes</option>';
+  }catch(e){ sel.innerHTML='<option value="">'+esc(e)+'</option>'; }
+}
+$('refresh').onclick=loadObjects; loadObjects();
+
+function body(fmt){
+  const fd=new FormData();
+  const key=$('obj').value, f=$('vcf').files[0];
+  if(key) fd.append('object_key',key); else if(f) fd.append('vcf',f);
+  fd.append('lineage',$('lineage').value); fd.append('fmt',fmt);
+  return {fd, ok:!!(key||f)};
+}
+
+$('go').onclick=async()=>{
+  const {fd,ok}=body('json');
+  if(!ok){ out.innerHTML='<div class="note">Choose an uploaded VCF, or attach a file.</div>'; return; }
+  $('go').disabled=true; $('go').textContent='Scoring…'; out.innerHTML='';
   try{
     const r=await fetch('predict',{method:'POST',body:fd});
-    if(!r.ok){ out.innerHTML='<div class="note">'+(await r.text())+'</div>'; return; }
+    if(!r.ok){ const j=await r.json().catch(()=>({detail:r.statusText}));
+      out.innerHTML='<div class="note">'+esc(j.detail||'failed')+'</div>'; return; }
     const rows=await r.json();
     if(!rows.length){ out.innerHTML='<div class="note">No drugs scored.</div>'; return; }
-    const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-    let h='<div class="card">';
-    for(const x of rows){
-      const rel=x.reliability, bar='#'.repeat(rel.band)+'.'.repeat(rel.of-rel.band);
-      const pr=(x.p_resistant!=null)?'P(R) '+x.p_resistant:'catalogue-graded';
-      h+='<details><summary><span>'+esc(x.drug)+'</span>'
-        +'<span class="'+x.prediction+'">'+x.prediction+'</span>'
-        +'<span class="p">'+pr+'</span>'
-        +'<span class="band">['+bar+'] '+rel.band+'/'+rel.of
-        +(rel.capped_by_tier?' capped':'')+'</span>'
-        +'<span class="p">'+esc(x.source||'model')+' · L'+(x.layer??2)
-        +(x.confidence.auc!=null?' · AUC '+x.confidence.auc:'')+'</span></summary>';
-      if(x.reasons.length){
-        h+='<div class="scroll"><table><tr><th>Mutation</th><th>Coefficient</th>'
-          +'<th>Logit</th><th>Target</th><th>Role</th></tr>';
-        for(const m of x.reasons)
-          h+='<tr><td>'+esc(m.mutation)+'</td><td>'
-            +(m.coefficient!=null?m.coefficient.toFixed(3):'—')+'</td><td>'
-            +(m.logit_contribution!=null?m.logit_contribution.toFixed(3):esc(m.call||'—'))
-            +'</td><td>'+(m.on_target?'on-target':'OFF-target')+'</td><td>'
-            +esc(m.role)+'</td></tr>';
-        h+='</table></div>';
-      } else {
-        h+='<p class="sub">No modelled mutation carried; the call rests on the intercept alone.</p>';
+    const byS={}; rows.forEach(x=>(byS[x.sample_id]=byS[x.sample_id]||[]).push(x));
+    let h='';
+    for(const [sid,rs] of Object.entries(byS)){
+      const l1=rs.filter(x=>x.layer===1).length;
+      h+='<div class="card"><h2>'+esc(sid)+' — '+l1+' catalogue-graded, '
+        +(rs.length-l1)+' modelled</h2>';
+      for(const x of rs){
+        const rel=x.reliability, bar='#'.repeat(rel.band)+'.'.repeat(rel.of-rel.band);
+        h+='<details><summary><b>'+esc(x.drug)+'</b>'
+          +'<span class="'+x.prediction+'">'+x.prediction+'</span>'
+          +'<span class="tag L'+x.layer+'">'+esc(x.source)+'</span>'
+          +'<span class="p">'+(x.p_resistant!=null?'P(R) '+x.p_resistant:'graded')+'</span>'
+          +'<span class="band">['+bar+']'+(rel.capped_by_evidence||rel.capped_by_tier?' capped':'')+'</span>'
+          +(x.confidence.auc!=null?'<span class="p">AUC '+x.confidence.auc+'</span>':'')
+          +'</summary>';
+        if(x.reasons.length){
+          h+='<div class="scroll"><table><tr><th>Mutation</th><th>Coefficient</th>'
+            +'<th>Logit</th><th>Target</th><th>Role</th></tr>';
+          for(const m of x.reasons)
+            h+='<tr><td>'+esc(m.mutation)+'</td><td>'
+              +(m.coefficient!=null?m.coefficient.toFixed(3):'—')+'</td><td>'
+              +(m.logit_contribution!=null?m.logit_contribution.toFixed(3):esc(m.call||'—'))
+              +'</td><td>'+(m.on_target?'on-target':'OFF-target')+'</td><td>'
+              +esc(m.role)+'</td></tr>';
+          h+='</table></div>';
+        } else {
+          h+='<p class="sub" style="margin:9px 0 0">'+(x.layer===1
+            ?'No graded mutation.':'No modelled mutation carried; the call rests on the intercept alone.')+'</p>';
+        }
+        if(x.causal_chain){
+          h+='<details style="margin:8px 0 0;border:0"><summary class="p" '
+            +'style="font-size:12.5px;color:var(--muted)">Reasoning chain — how this call was reached</summary><pre>';
+          for(const s of x.causal_chain){
+            h+=esc(s.step+'. '+s.stage.toUpperCase()+'  ['+s.kind+']')+'\n   '+esc(s.claim)+'\n';
+            if(s.stage==='contribution'){
+              for(const c of s.detail.causal_reading_supported)
+                h+='     + '+esc(c.mutation)+'  logit '+c.logit.toFixed(3)+'  mechanism: '+esc(c.why)+'\n';
+              for(const c of s.detail.association_only)
+                h+='     ~ '+esc(c.mutation)+'  logit '+c.logit.toFixed(3)+'  association only: '+esc(c.why)+'\n';
+            }
+            h+='   basis: '+esc(s.basis)+'\n\n';
+          }
+          h+='</pre></details>';
+        }
+        h+='<pre>'+esc(x.confidence.caveat)+'</pre></details>';
       }
-      h+='<pre>'+esc(x.confidence.caveat)+'</pre></details>';
+      h+='</div>';
     }
-    h+='</div><div class="card"><div class="row">'
-      +'<button id="dlzip">Download all (.zip)</button>'
-      +'<button id="dltsv">predictions.tsv</button>'
-      +'<button id="dltxt">reasoning.txt</button></div></div>';
+    h+='<div class="card"><h2>3 · Download</h2><div class="row">'
+      +'<button id="dlzip">Everything (.zip)</button>'
+      +'<button class="ghost" id="dltsv">predictions.tsv</button>'
+      +'<button class="ghost" id="dltxt">reasoning.txt</button></div></div>';
     out.innerHTML=h;
     const grab=async(fmt,name)=>{
-      const fd2=new FormData(); fd2.append('vcf',document.getElementById('vcf').files[0]);
-      fd2.append('lineage',document.getElementById('lineage').value); fd2.append('fmt',fmt);
-      const rz=await fetch('predict',{method:'POST',body:fd2});
-      const b=await rz.blob(), a=document.createElement('a');
+      const {fd}=body(fmt);
+      const r=await fetch('predict',{method:'POST',body:fd});
+      const b=await r.blob(), a=document.createElement('a');
       a.href=URL.createObjectURL(b); a.download=name; a.click(); URL.revokeObjectURL(a.href);
     };
-    document.getElementById('dlzip').onclick=()=>grab('zip','predictions.zip');
-    document.getElementById('dltsv').onclick=()=>grab('tsv','predictions.tsv');
-    document.getElementById('dltxt').onclick=()=>grab('txt','reasoning.txt');
-  }catch(err){ out.innerHTML='<div class="note">'+err+'</div>'; }
-  finally{ go.disabled=false; go.textContent='Predict'; }
-});
+    $('dlzip').onclick=()=>grab('zip','predictions.zip');
+    $('dltsv').onclick=()=>grab('tsv','predictions.tsv');
+    $('dltxt').onclick=()=>grab('txt','reasoning.txt');
+  }catch(e){ out.innerHTML='<div class="note">'+esc(e)+'</div>'; }
+  finally{ $('go').disabled=false; $('go').textContent='Predict'; }
+};
 </script>

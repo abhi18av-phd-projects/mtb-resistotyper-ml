@@ -11,7 +11,7 @@ framework: custom
 
 # Built by deploy/webapp/bring-up.sh. "aither.local" is the platform's
 # local-image naming convention, not a live registry: docker push always fails.
-image: aither.local/mtb-resistotyper-webapp:v0.1.1
+image: aither.local/mtb-resistotyper-webapp:v0.2.0
 
 port: 8080
 health: /health
@@ -27,8 +27,21 @@ expose: [public, shared, private]
 
 resources:
   cpu: 1000      # MHz — gumpy's genome diff dominates; scoring is arithmetic
-  memory: 4096   # MiB — a parsed H37Rv genome object is the floor
+  memory: 6144   # MiB — a parsed H37Rv genome plus the piezo catalogue
 
 env:
   MTB_MODELS: /opt/models
   MTB_REFERENCE_GENBANK: /opt/reference/NC_000962.3.gbk
+  MTB_CATALOGUE: /opt/catalogue/NC_000962.3_WHO-UCN-TB-2023.5_v2.1_GARC1_RFUS.csv
+  MTB_BUCKET: su-mbhg-bioinformatics
+  # Where uploads land. `abc data upload` writes under user/<slot>/; the tusd
+  # mover writes user/<slot>/data/. The service refuses any key outside these,
+  # so a prediction endpoint cannot be used as a general read oracle for the
+  # group bucket.
+  MTB_PREFIXES: "user/abhinav/,users/abhi/,shared/"
+
+# Read-only: this service reads what a researcher already uploaded and writes
+# nothing back. Results are returned to the browser, not deposited in the bucket.
+data:
+  - bucket: su-mbhg-bioinformatics
+    access: read
