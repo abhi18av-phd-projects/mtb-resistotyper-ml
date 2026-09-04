@@ -1,0 +1,50 @@
+{
+  "AMI": {
+    "n": 808,
+    "n_resistant": 17,
+    "n_with_modelled_mutation": 334,
+    "n_features": 5
+  },
+  "EMB": {
+    "n": 955,
+    "n_resistant": 165,
+    "n_with_modelled_mutation": 910,
+    "n_features": 33
+  },
+  "ETH": {
+    "n": 1961,
+    "n_resistant": 271,
+    "n_with_modelled_mutation": 1945,
+    "n_features": 36
+  },
+  "INH": {
+    "n": 525,
+    "n_resistant": 226,
+    "n_with_modelled_mutation": 495,
+    "n_features": 37
+  },
+  "KAN": {
+    "n": 866,
+    "n_resistant": 25,
+    "n_with_modelled_mutation": 533,
+    "n_features": 16
+  },
+  "LEV": {
+    "n": 1092,
+    "n_resistant": 67,
+    "n_with_modelled_mutation": 281,
+    "n_features": 19
+  },
+  "MXF": {
+    "n": 1155,
+    "n_resistant": 44,
+    "n_with_modelled_mutation": 601,
+    "n_features": 38
+  },
+  "RIF": {
+    "n": 405,
+    "n_resistant": 47,
+    "n_with_modelled_mutation": 378,
+    "n_features": 39
+  }
+}

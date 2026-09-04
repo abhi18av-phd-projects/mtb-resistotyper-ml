@@ -1,0 +1,21 @@
+# Layer-2 evaluation dashboard: what the models add where the catalogue stops.
+version: "1.0"
+name: mtb-layer2-eval
+project: mbhg-bioinformatics
+framework: streamlit
+
+image: aither.local/mtb-layer2-eval:v0.1.0
+
+port: 8501
+health: /_stcore/health
+
+# Public: the finding this page reports is a negative one about our own models,
+# and the argument in the chapter rests on it being inspectable rather than
+# summarised. Nothing here is patient-identifiable -- CRyPTIC UNIQUEIDs are
+# consortium sample identifiers from a published, openly licensed compendium.
+access: team
+expose: [public, shared, private]
+
+resources:
+  cpu: 1000      # MHz
+  memory: 2048   # MiB — the scored cohort is a few MB of JSON held in cache
