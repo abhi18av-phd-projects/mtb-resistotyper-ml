@@ -39,6 +39,7 @@ from mtb_resistotyper_ml.report import render
 
 import normalise
 import storage
+from report_html import render_report
 from vcf_to_garc import (ReferenceUnavailable, genes_of_interest, to_instance,
                          variants_from_vcf)
 
@@ -97,6 +98,9 @@ def sweep(dry_run: bool = True) -> dict:
 DOWNLOAD_README = """mtb-resistotyper-ml predictions
 ===============================
 
+report.html         the whole result set as one self-contained page: the
+                    susceptibility grid, per-drug reasoning, the contribution
+                    plots and the provenance. Open this first.
 predictions.tsv     one row per drug, with the reasoning flattened into a column
 predictions.json    the full structured result, including every contribution
 reasoning.txt       the same rendering `mtb-resistotyper-ml predict` prints
@@ -284,6 +288,9 @@ async def predict(object_key: str | None = Form(default=None),
         rows = [r for inst in instances
                 for r in resolve_all(inst, MODELS, use_catalogue=catalogue_ready())]
 
+    if fmt == "html":
+        return Response(render_report(rows, inputs={"source": source, "lineage": lineage}),
+                        media_type="text/html")
     if fmt == "txt":
         return Response(rows_to_text(rows), media_type="text/plain",
                         headers={"Content-Disposition": "attachment; filename=reasoning.txt"})
@@ -306,6 +313,10 @@ async def predict(object_key: str | None = Form(default=None),
                               "variants": i.get("variants", [])} for i in instances]},
                 indent=2, default=str))
             z.writestr("README.txt", DOWNLOAD_README)
+            # The report is the artefact a reader actually opens; the rest are
+            # what they reach for once it has told them where to look.
+            z.writestr("report.html", render_report(
+                rows, inputs={"source": source, "lineage": lineage}))
         return Response(buf.getvalue(), media_type="application/zip",
                         headers={"Content-Disposition": "attachment; filename=predictions.zip"})
     return JSONResponse(rows)
