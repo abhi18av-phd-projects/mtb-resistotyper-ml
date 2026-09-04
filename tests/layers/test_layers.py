@@ -175,3 +175,21 @@ def test_a_call_with_no_mechanism_says_so() -> None:
             continue
         assert any(s["stage"] == "warning" for s in chain), (
             f"{drug}: call rests entirely on associations and the chain does not say so")
+
+
+@needs
+def test_every_row_renders() -> None:
+    """Rendering must survive both layers.
+
+    A Layer 1 row carries no probability and so no margin, which crashed the
+    text report in production: the download path formatted `margin:.3f` on None.
+    Rendering every row of a mixed isolate is the cheapest guard against that
+    whole class of shape mismatch between the layers.
+    """
+    from mtb_resistotyper_ml.report import render
+    rows = _score([{"gene": "rpoB", "mutation": "S450L"},
+                   {"gene": "embA", "mutation": "c-11a"},
+                   {"gene": "katG", "mutation": "S315T"}])
+    for drug, r in rows.items():
+        text = render(r)
+        assert r["drug"] in text and str(r["prediction"]) in text, f"{drug}: thin render"
