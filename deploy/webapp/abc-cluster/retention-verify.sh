@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #ABC --name=mtb-retention-verify
 #ABC --driver=docker
-#ABC --driver.config.image=aither.local/mtb-resistotyper-webapp:v0.2.5
+#ABC --driver.config.image=ghcr.io/abhi18av-phd-projects/mtb-resistotyper-ml/mtb-resistotyper-webapp:v0.2.5
 #ABC --cores=1
 #ABC --mem=512M
 #ABC --time=00:05:00
