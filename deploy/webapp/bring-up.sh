@@ -1,15 +1,20 @@
 #!/usr/bin/env bash
 # Build the serving image on aither and deploy it with the abc CLI.
 #
-# The image is built ON aither because "aither.local/..." is a naming
-# convention for images already present in that host's docker daemon, not a
-# registry that can be pushed to. Build elsewhere and the deploy places a job
-# that can never pull.
+# The image is built on aither because the build context and the models are
+# already there, and it is then PUSHED to GHCR. The push is what the manifest
+# depends on: it previously named "aither.local/...", a convention for images
+# already present in that one host's docker daemon, so the deploy worked only
+# where the build happened to sit and would place an unpullable job anywhere
+# else. Keep both tags -- the local one is what the build produces, the registry
+# one is what anything else can actually pull.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MODELS_REPO="${MODELS_REPO:-$(cd "$REPO_ROOT/../mtb-resistotyper-ml-models" && pwd)}"
-TAG="${TAG:-v0.1.1}"
+TAG="${TAG:-v0.2.5}"
+REGISTRY="${REGISTRY:-ghcr.io/abhi18av-phd-projects/mtb-resistotyper-ml}"
+IMAGE="mtb-resistotyper-webapp"
 HOST="${HOST:-sun-aither}"
 CTX="${ABC_CLI_CONTEXT:-seedling-abhi}"
 
@@ -22,7 +27,7 @@ STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 mkdir -p "$STAGE/dist" "$STAGE/app"
 cp dist/*.whl "$STAGE/dist/"
-cp -R app/main.py app/vcf_to_garc.py app/static app/Dockerfile "$STAGE/app/"
+cp -R app/*.py app/static app/Dockerfile "$STAGE/app/"
 # The bundles ship inside the image at a pinned models-repo revision. The
 # artefact contract lets them move independently of the runner; pinning the
 # revision here is what makes a served prediction attributable to one of them.
@@ -36,9 +41,15 @@ ssh "$HOST" 'rm -rf ~/mtb-webapp-build && mkdir -p ~/mtb-webapp-build'
 scp -q "$STAGE.tgz" "$HOST:~/mtb-webapp-build/ctx.tgz"
 rm -f "$STAGE.tgz"
 
-echo "==> building aither.local/mtb-resistotyper-webapp:$TAG on $HOST"
+echo "==> building $REGISTRY/$IMAGE:$TAG on $HOST"
 ssh "$HOST" "cd ~/mtb-webapp-build && tar xzf ctx.tgz && \
-             docker build -t aither.local/mtb-resistotyper-webapp:$TAG ."
+             docker build -t aither.local/$IMAGE:$TAG -t $REGISTRY/$IMAGE:$TAG ."
+
+# Pushed before the deploy, not after: abc app deploy places a job that pulls
+# this tag, so a deploy that runs first can only succeed on the node holding
+# the build -- the failure this push exists to remove.
+echo "==> pushing $REGISTRY/$IMAGE:$TAG"
+ssh "$HOST" "docker push -q $REGISTRY/$IMAGE:$TAG"
 
 echo "==> deploying"
 cd "$REPO_ROOT/deploy/webapp"

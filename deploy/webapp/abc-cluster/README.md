@@ -58,13 +58,6 @@ trigger. Until then these are run after deployment and on demand, and the
 in-app loop remains the only thing running them daily. That is the honest
 status: the automations are declared and auditable, not yet scheduled.
 
-**The service manifest still pins the node-local tag.** These jobs now name the
-registry image, so they place on any node. `deploy/webapp/abc-app.yaml` beside
-them still names `aither.local/…`, which exists only in one node's image cache;
-until that is changed too, the service and its automations are pinned to
-different copies of the same build. They live in one directory so that
-divergence is visible rather than discovered during an incident.
-
 **Credentials come from the job's identity.** The scripts read the bucket from
 the image's environment and expect the platform to supply object-store
 credentials, the same way the service receives them. A job submitted by a user

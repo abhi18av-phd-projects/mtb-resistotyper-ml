@@ -5,16 +5,17 @@
 # makes is therefore a model call, and it labels each one as such rather than
 # leaving the reader to infer it.
 version: "1.0"
-name: mtb-resistotyper
+name: mtb-resistotyper-demo
 project: mbhg-bioinformatics
 framework: custom
 
-# Built and pushed by deploy/webapp/bring-up.sh. This is a real registry, so the
-# job can place on any node and survives a node rebuild. It previously named
-# "aither.local/...", a convention for images already sitting in one host's
-# docker daemon: the deploy worked only because that host happened to hold the
-# build, and would have placed a job that could never pull anywhere else.
-image: ghcr.io/abhi18av-phd-projects/mtb-resistotyper-ml/mtb-resistotyper-webapp:v0.2.5
+# NOT yet on the registry. This variant pins v0.2.2 while the service manifest
+# beside it has moved to v0.2.5 in GHCR, and v0.2.2 was never pushed there, so
+# pointing this at the registry would name an image that does not exist.
+# "aither.local/..." is a convention for images already in one host's docker
+# daemon: this variant therefore still places only where that build happens to
+# sit. Rebuild it at the current tag to move it over.
+image: aither.local/mtb-resistotyper-webapp:v0.2.2
 
 port: 8080
 health: /health
@@ -48,25 +49,28 @@ env:
   # identifiers, so listing them discloses who was sequenced even when nothing is
   # read. Left empty, /objects returns 403. Set it only to a curated demo prefix
   # on a publicly reachable deployment.
-  # Enabled for the anonymous-upload prefix only. Those are files testers put
-  # through this app themselves, on short store-enforced retention, so the
-  # keys disclose nothing about the group's sequencing. The real data
-  # prefixes stay unlistable: readable by key, never enumerable.
-  MTB_LIST_PREFIXES: "anon-uploads/"
+  MTB_LIST_PREFIXES: ""
 
   # Anonymous uploads: a deliberate testing affordance. Nobody knows who uploaded
   # an anonymous clinical VCF or under what basis, so there is no one to ask and
   # no consent recorded. Retention is therefore short and enforced by the object
   # store, not promised by the application.
-  MTB_ANON_UPLOADS: "1"
+  # No bucket, so nothing to store into and nothing to expire.
+  MTB_ANON_UPLOADS: "0"
   MTB_ANON_PREFIX: "anon-uploads/"
   MTB_ANON_RETENTION_HOURS: "24"
   MTB_ANON_MAX_BYTES: "67108864"
 
-# Read-write, and only because of anonymous uploads: the service stores them
-# under anon-uploads/ so a tester can re-run without re-uploading, and applies
-# the bucket lifecycle rule that expires them. Results are still returned to the
-# browser rather than deposited in the bucket.
-data:
-  - bucket: su-mbhg-bioinformatics
-    access: read-write
+# NO data: block, deliberately.
+#
+# The storage-backed variant (abc-app.yaml) cannot deploy while MinIO's
+# service-account object for this app is corrupt: the key sa-86cf3ef688c98ce9 is
+# derived from the app identity, so it is the same key every time, and its
+# identity.json was written incompletely onto a failing disk. MinIO now reports
+# the key as taken and the object as truncated, which no retry resolves.
+#
+# This variant carries no `data:` block, so no service account is minted and the
+# app never touches the object store. It serves the upload path only: a VCF
+# posted to /predict is normalised, converted, scored through both layers, and
+# returned. That is the whole pipeline except the object picker, which is what
+# makes it a fair test of the flow rather than a stub.
