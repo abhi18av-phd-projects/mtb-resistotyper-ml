@@ -1,0 +1,13 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=NC-000962-3-H37Rv,length=4411532>
+##ALT=<ID=NON_REF,Description="Represents any possible alternative allele">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Total depth">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Depth">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype quality">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SYNTH05
+NC-000962-3-H37Rv	761139	.	C	T,<NON_REF>	500	PASS	DP=120	GT:AD:DP:GQ	1:2,118,0:120:99
+NC-000962-3-H37Rv	761140	.	A	G,<NON_REF>	500	PASS	DP=120	GT:AD:DP:GQ	1:2,118,0:120:99
+NC-000962-3-H37Rv	2155168	.	C	G,<NON_REF>	500	PASS	DP=120	GT:AD:DP:GQ	1:2,118,0:120:99
