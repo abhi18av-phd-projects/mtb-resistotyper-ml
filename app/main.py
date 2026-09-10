@@ -37,11 +37,11 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response
 from mtb_resistotyper_ml import __version__, catalogue, catalogue_ready, resolve_all
 from mtb_resistotyper_ml.report import render
 
-import normalise
+from mtb_resistotyper_ml import normalise
 import storage
 from report_html import render_report
-from vcf_to_garc import (ReferenceUnavailable, genes_of_interest, to_instance,
-                         variants_from_vcf)
+from mtb_resistotyper_ml.ingest import BcftoolsUnavailable, instances_from_vcf
+from mtb_resistotyper_ml.vcf_to_garc import ReferenceUnavailable
 
 MODELS = Path(os.environ.get("MTB_MODELS", "/opt/models"))
 REFERENCE = Path(os.environ.get("MTB_REFERENCE_GENBANK", "/opt/reference/NC_000962.3.gbk"))
@@ -180,21 +180,6 @@ def rows_to_text(results: list[dict]) -> str:
     return ("\n\n" + "-" * 72 + "\n\n").join(render(r) for r in results)
 
 
-def _instances_from_vcf(path: Path, lineage: str, workdir: Path) -> list[dict]:
-    """One ideal-input instance per sample in the file.
-
-    A multi-sample cohort produces several. Earlier this service scored the first
-    column and merely named the others, which reports one isolate's genotype
-    under a shared filename; bcftools splits them properly instead.
-    """
-    genes = genes_of_interest(MODELS)
-    out = []
-    for sample, ready in normalise.normalise(path, workdir, genes=genes, genbank=REFERENCE):
-        variants = variants_from_vcf(ready, REFERENCE, genes=genes)
-        out.append(to_instance(sample, variants, lineage=lineage))
-    return out
-
-
 @app.get("/health")
 def health() -> dict:
     try:
@@ -257,7 +242,8 @@ async def predict(object_key: str | None = Form(default=None),
                 source = {"kind": "instance_json"}
             elif object_key:
                 local = storage.fetch(object_key, work / "in")
-                instances = _instances_from_vcf(local, lineage, work / "norm")
+                instances = instances_from_vcf(local, REFERENCE, models=MODELS, lineage=lineage,
+                                             workdir=work / "norm")
                 source = {"kind": "object", "bucket": storage.BUCKET, "key": object_key}
             elif vcf is not None:
                 raw = await vcf.read()
@@ -275,14 +261,15 @@ async def predict(object_key: str | None = Form(default=None),
                                    "retention_hours": storage.ANON_RETENTION_HOURS}
                     except storage.StorageUnavailable as exc:
                         source["not_stored"] = str(exc)
-                instances = _instances_from_vcf(local, lineage, work / "norm")
+                instances = instances_from_vcf(local, REFERENCE, models=MODELS, lineage=lineage,
+                                             workdir=work / "norm")
             else:
                 raise HTTPException(400, "supply object_key, a vcf file, or instance_json")
         except storage.StorageUnavailable as exc:
             raise HTTPException(503, f"storage: {exc}") from exc
         except normalise.NormalisationFailed as exc:
             raise HTTPException(422, f"VCF could not be normalised: {exc}") from exc
-        except ReferenceUnavailable as exc:
+        except (ReferenceUnavailable, BcftoolsUnavailable) as exc:
             raise HTTPException(503, str(exc)) from exc
 
         rows = [r for inst in instances

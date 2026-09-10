@@ -22,12 +22,21 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
-# Deliberately empty. Scoring a deployed bundle is a closed form over the standard
-# library; adding a numerical stack here would be a dependency the tool does not use.
+# Deliberately empty, and it still is. Scoring a deployed bundle is a closed form
+# over the standard library, and `import mtb_resistotyper_ml` pulls in nothing.
+# The two capabilities that DO need third-party code import it lazily and fail
+# with an explanation, so a bare install is useful rather than broken.
 dependencies = []
 
 [project.optional-dependencies]
-catalogue = ["piezo>=1.0"]     # Layer 1, the curated WHO catalogue
+# Layer 1, the curated WHO catalogue. piezo's latest release is 0.9.2; an earlier
+# `>=1.0` here was unsatisfiable and made the extra uninstallable.
+catalogue = ["piezo>=0.9"]
+# Reading a VCF: gumpy converts genome coordinates to gene-anchored GARC names and
+# brings biopython with it. NOT sufficient on its own — bcftools must be on PATH,
+# which pip cannot supply; see the README.
+vcf = ["gumpy>=1.3"]
+all = ["mtb-resistotyper-ml[catalogue,vcf]"]
 dev = ["pytest>=8", "ruff>=0.6"]
 
 [project.scripts]
@@ -49,6 +58,10 @@ select = ["B", "C4", "E", "F", "I", "RUF", "UP", "W"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Test the tree, not whatever copy happens to be installed. Without this a stale
+# site-packages install shadows src/ and the suite reports failures that describe
+# the old code rather than this one.
+pythonpath = ["src"]
 
 [tool.hatch.version]
 # Single source: the package states its own version and the wheel follows.

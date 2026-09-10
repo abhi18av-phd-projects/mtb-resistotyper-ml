@@ -7,6 +7,52 @@ model bundle that declares its own operating range**.
 pip install mtb-resistotyper-ml
 ```
 
+That bare install scores an isolate you have already converted, and pulls in nothing:
+the scoring path is a closed form over the standard library. Two capabilities need
+more, and each is an extra so you only carry what you use.
+
+| you want to | install | also needs |
+|---|---|---|
+| score an already-converted isolate | `mtb-resistotyper-ml` | — |
+| Layer 1, the curated WHO catalogue | `mtb-resistotyper-ml[catalogue]` | a catalogue CSV |
+| read a VCF / gVCF directly | `mtb-resistotyper-ml[vcf]` | **bcftools on `PATH`**, an H37Rv GenBank |
+| everything | `mtb-resistotyper-ml[all]` | both of the above |
+
+**bcftools is a system dependency and pip cannot supply it.** Install it with your
+package manager (`apt install bcftools`, `brew install bcftools`, `conda install -c
+bioconda bcftools`). Without it the library raises `BcftoolsUnavailable` rather than
+producing a wrong answer from an unnormalised file.
+
+Both capabilities are imported lazily, so a bare install imports and runs; ask it to do
+something it lacks the dependency for and it says which one is missing.
+
+## Two ways in, one computation
+
+The command line and any Python caller enter through the same function, so a call made
+at a terminal and a call made inside a service are the same computation on the same
+input.
+
+```bash
+# a MAGMA gVCF, single- or multi-sample; a cohort file yields one result set per sample
+mtb-resistotyper-ml predict --vcf cohort.g.vcf.gz \
+    --reference NC_000962.3.gbk --models ./models --tsv
+```
+
+```python
+from pathlib import Path
+from mtb_resistotyper_ml import instances_from_vcf, resolve_all, catalogue_ready
+
+for instance in instances_from_vcf("cohort.g.vcf.gz", "NC_000962.3.gbk",
+                                   models="./models"):
+    for row in resolve_all(instance, Path("./models"),
+                           use_catalogue=catalogue_ready()):
+        print(row["sample_id"], row["drug"], row["prediction"], row["source"])
+```
+
+`iter_instances_from_vcf` is the streaming form, for a cohort too large to hold at once.
+Every row carries `source` and `layer`, so a caller can always tell whether the
+catalogue or a model answered.
+
 ## The models are not in here
 
 This is the **runner**. The trained models live in

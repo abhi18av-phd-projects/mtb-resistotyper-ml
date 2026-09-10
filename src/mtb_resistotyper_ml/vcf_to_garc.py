@@ -75,7 +75,13 @@ def genes_of_interest(models_dir: Path | None = None) -> set[str]:
     genes: set[str] = set()
     models = Path(models_dir or os.environ.get("MTB_MODELS", "/opt/models"))
     if models.exists():
-        for schema in models.glob("*/feature_schema.json"):
+        # Both layouts, because a deployment carrying two compendium releases
+        # nests them one level deeper (MODELS/<release>/<DRUG>/) and a gene
+        # missed here is not an error anywhere -- it is silently never
+        # reconstructed, so the variant that needed it scores as wild type.
+        schemas = list(models.glob("*/feature_schema.json"))
+        schemas += list(models.glob("*/*/feature_schema.json"))
+        for schema in schemas:
             for f in json.loads(schema.read_text()).get("features", []):
                 if f.get("gene"):
                     genes.add(f["gene"])

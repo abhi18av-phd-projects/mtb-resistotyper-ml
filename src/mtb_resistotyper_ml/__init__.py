@@ -16,6 +16,10 @@ from mtb_resistotyper_ml.explain import explain
 from mtb_resistotyper_ml.score import ModelBundle, reliability, score
 from mtb_resistotyper_ml.vectorize import fired, vectorize
 from mtb_resistotyper_ml.layers import catalogue_ready, resolve, resolve_all
+from mtb_resistotyper_ml.ingest import (BcftoolsUnavailable, ReferenceUnavailable,
+                                        instances_from_vcf, iter_instances_from_vcf)
 
 __all__ = ["ModelBundle", "score", "reliability", "explain", "vectorize", "fired",
-           "catalogue", "catalogue_ready", "resolve", "resolve_all", "__version__"]
+           "catalogue", "catalogue_ready", "resolve", "resolve_all",
+           "instances_from_vcf", "iter_instances_from_vcf",
+           "ReferenceUnavailable", "BcftoolsUnavailable", "__version__"]

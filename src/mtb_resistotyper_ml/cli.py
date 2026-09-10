@@ -18,6 +18,8 @@ import sys
 from pathlib import Path
 
 from mtb_resistotyper_ml import catalogue as _catalogue
+from mtb_resistotyper_ml.ingest import (BcftoolsUnavailable, ReferenceUnavailable,
+                                        instances_from_vcf)
 from mtb_resistotyper_ml.layers import catalogue_ready, resolve_all
 from mtb_resistotyper_ml.report import render
 from mtb_resistotyper_ml.score import ModelBundle
@@ -89,41 +91,56 @@ def _predict(args: argparse.Namespace) -> int:
         print(msg + "Continuing with models only; rows will say "
                     "catalogue_consulted=false.", file=sys.stderr)
 
-    instance = _load_instance(args.input)
-    if args.lineage:
-        instance.setdefault("covariates", {})["lineage"] = args.lineage
-
     models = Path(args.models)
+    if args.vcf:
+        try:
+            instances = instances_from_vcf(args.vcf, args.reference, models=models,
+                                           lineage=args.lineage or "unknown")
+        except (ReferenceUnavailable, BcftoolsUnavailable) as exc:
+            sys.exit(str(exc))
+        if not instances:
+            sys.exit(f"no samples found in {args.vcf}")
+    else:
+        instances = [_load_instance(args.input)]
+        if args.lineage:
+            instances[0].setdefault("covariates", {})["lineage"] = args.lineage
     if args.model:                     # single-bundle mode, as before
         bundles = [Path(args.model)]
         models, drugs = bundles[0].parent, [bundles[0].name]
     else:
         drugs = args.drugs.split(",") if args.drugs else None
 
-    results = resolve_all(instance, models, threshold=args.threshold,
-                          use_catalogue=use_cat, drugs=drugs)
-    if not results:
-        sys.exit(f"no model bundles under {models}")
+    every: list[dict] = []
+    for instance in instances:
+        results = resolve_all(instance, models, threshold=args.threshold,
+                              use_catalogue=use_cat, drugs=drugs)
+        if not results:
+            sys.exit(f"no model bundles under {models}")
+        every.extend(results)
+
+        if args.outdir:
+            # One set of files per sample. A cohort file scored into a single
+            # merged output would need the reader to re-separate the isolates,
+            # which is exactly the confusion the per-sample split exists to avoid.
+            out = Path(args.outdir)
+            out.mkdir(parents=True, exist_ok=True)
+            sid = instance.get("sample_id", "sample")
+            (out / f"{sid}.predictions.json").write_text(json.dumps(results, indent=2) + "\n")
+            with (out / f"{sid}.predictions.tsv").open("w") as fh:
+                _rows_to_tsv(results, fh)
+            (out / f"{sid}.reasoning.txt").write_text(
+                ("\n\n" + "-" * 72 + "\n\n").join(render(r) for r in results) + "\n")
+            if not args.quiet:
+                print(f"wrote {out}/{sid}.predictions.{{json,tsv}} and {sid}.reasoning.txt")
 
     if args.outdir:
-        out = Path(args.outdir)
-        out.mkdir(parents=True, exist_ok=True)
-        sid = instance.get("sample_id", "sample")
-        (out / f"{sid}.predictions.json").write_text(json.dumps(results, indent=2) + "\n")
-        with (out / f"{sid}.predictions.tsv").open("w") as fh:
-            _rows_to_tsv(results, fh)
-        (out / f"{sid}.reasoning.txt").write_text(
-            ("\n\n" + "-" * 72 + "\n\n").join(render(r) for r in results) + "\n")
-        if not args.quiet:
-            print(f"wrote {out}/{sid}.predictions.{{json,tsv}} and {sid}.reasoning.txt")
         return 0
-
     if args.json:
-        print(json.dumps(results, indent=2))
+        print(json.dumps(every, indent=2))
     elif args.tsv:
-        _rows_to_tsv(results, sys.stdout)
+        _rows_to_tsv(every, sys.stdout)
     else:
-        print(("\n\n" + "-" * 72 + "\n\n").join(render(r) for r in results))
+        print(("\n\n" + "-" * 72 + "\n\n").join(render(r) for r in every))
     return 0
 
 
@@ -185,7 +202,15 @@ def main(argv: list[str] | None = None) -> int:
     sub = p.add_subparsers(dest="command", required=True)
 
     pr = sub.add_parser("predict", help="score one isolate across every deployed drug")
-    pr.add_argument("--input", required=True, help="ideal-input JSON (GARC variants + covariates)")
+    src = pr.add_mutually_exclusive_group(required=True)
+    src.add_argument("--vcf", help="VCF/gVCF/BCF, single- or multi-sample (e.g. MAGMA output). "
+                                   "Normalised with bcftools and converted to GARC, the same "
+                                   "path the web service takes")
+    src.add_argument("--input", help="ideal-input JSON (GARC variants + covariates), "
+                                     "for an isolate already converted")
+    pr.add_argument("--reference", default=os.environ.get(
+                        "MTB_REFERENCE_GENBANK", "/opt/reference/NC_000962.3.gbk"),
+                    help="H37Rv GenBank for --vcf (env: MTB_REFERENCE_GENBANK)")
     pr.add_argument("--models", default=os.environ.get("MTB_MODELS", "models"),
                     help="directory of model bundles (env: MTB_MODELS)")
     pr.add_argument("--model", help="score a single bundle directory instead of all of them")

@@ -43,7 +43,9 @@ RUN pip install --no-cache-dir /tmp/*.whl && rm -f /tmp/*.whl
 
 WORKDIR /srv
 COPY models /opt/models
-COPY app/main.py app/normalise.py app/storage.py app/vcf_to_garc.py /srv/
+# Every app module, not an enumeration that silently rots: main.py imports
+# report_html, and the enumerated list had already fallen behind it once.
+COPY app/*.py /srv/
 COPY app/static /srv/static
 ENV MTB_MODELS=/opt/models \
     MTB_REFERENCE_GENBANK=/opt/reference/NC_000962.3.gbk \
