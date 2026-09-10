@@ -14,7 +14,7 @@ framework: custom
 # "aither.local/...", a convention for images already sitting in one host's
 # docker daemon: the deploy worked only because that host happened to hold the
 # build, and would have placed a job that could never pull anywhere else.
-image: ghcr.io/abhi18av-phd-projects/mtb-resistotyper-ml/mtb-resistotyper-webapp:v0.2.5
+image: ghcr.io/abhi18av-phd-projects/mtb-resistotyper-ml/mtb-resistotyper-webapp:v0.2.8
 
 port: 8080
 health: /health
@@ -41,18 +41,21 @@ env:
   # mover writes user/<slot>/data/. The service refuses any key outside these,
   # so a prediction endpoint cannot be used as a general read oracle for the
   # group bucket.
-  MTB_PREFIXES: "user/abhinav/,users/abhi/,shared/,anon-uploads/"
+  MTB_PREFIXES: "user/abhinav/,users/abhi/,shared/,anon-uploads/,demo/"
 
   # Enumeration is a separate permission from reading, and the dangerous one:
   # object keys in a research group's bucket routinely carry sample and patient
   # identifiers, so listing them discloses who was sequenced even when nothing is
   # read. Left empty, /objects returns 403. Set it only to a curated demo prefix
   # on a publicly reachable deployment.
-  # Enabled for the anonymous-upload prefix only. Those are files testers put
-  # through this app themselves, on short store-enforced retention, so the
-  # keys disclose nothing about the group's sequencing. The real data
-  # prefixes stay unlistable: readable by key, never enumerable.
-  MTB_LIST_PREFIXES: "anon-uploads/"
+  # Enabled for two prefixes, both of which disclose nothing. demo/ holds the
+  # generated synthetic isolates in deploy/webapp/demo -- no real sample is in
+  # it, so the whole prefix is safe to enumerate, and without it the dropdown on
+  # a fresh deployment is empty and the service demonstrates nothing.
+  # anon-uploads/ holds files testers put through this app themselves, on short
+  # store-enforced retention. The real data prefixes stay unlistable: readable
+  # by key, never enumerable.
+  MTB_LIST_PREFIXES: "demo/,anon-uploads/"
 
   # Anonymous uploads: a deliberate testing affordance. Nobody knows who uploaded
   # an anonymous clinical VCF or under what basis, so there is no one to ask and

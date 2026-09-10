@@ -1,0 +1,71 @@
+/* abc-site-kit — canonical design tokens (SINGLE SOURCE).
+ *
+ * Full --abc-* palette (light default + dark) AND the short-name
+ * aliases (--bg, --ink, --accent, ...). Consumed by:
+ *   - Docusaurus sites: @import in custom.css, which then maps --ifm-*
+ *     to these --abc-* vars.
+ *   - No-build static pages (apex landing, Uppy portal): vendored as
+ *     dist/tokens.css and <link>ed directly.
+ *
+ * Light is the default (:root); dark via [data-theme='dark']. Matches
+ * both Docusaurus (toggles data-theme) and the static pages (which set
+ * <html data-theme="light"> and toggle to dark).
+ */
+
+:root {
+  --abc-bg:        #ffffff;
+  --abc-bg-1:      #eef6f2;
+  --abc-bg-2:      #e3eee8;
+  --abc-text:      #1a4a3a;
+  --abc-text-dim:  #2d7060;
+  --abc-text-mute: #6aaa96;
+  --abc-ink:       #0a2820;
+  --abc-ink-dim:   #907028;
+  --abc-accent:    #907028;
+  --abc-accent-dim:#c8a84c;
+  --abc-rule:      #a8d8cc;
+  --abc-rule-soft: #c8e8e0;
+  --abc-primary:   #2d7060;
+  --abc-danger:    #b04040;
+  --abc-success:   #2d7060;
+}
+
+[data-theme='dark'] {
+  --abc-bg:        #070f0c;
+  --abc-bg-1:      #0b1a15;
+  --abc-bg-2:      #0f2219;
+  --abc-text:      #c5e5dc;
+  --abc-text-dim:  #7db8a8;
+  --abc-text-mute: #4a7d6f;
+  --abc-ink:       #e8f9f4;
+  --abc-ink-dim:   #c8a84c;
+  --abc-accent:    #c8a84c;
+  --abc-accent-dim:#a87c2c;
+  --abc-rule:      #163d32;
+  --abc-rule-soft: #0e2a22;
+  --abc-primary:   #4ab89a;
+  --abc-danger:    #e07b7b;
+  --abc-success:   #6fcca5;
+}
+
+/* Short-name aliases — what the seedling-derived landing / portal CSS
+ * uses directly. Always resolve to the active-theme --abc-* values. */
+:root,
+[data-theme='light'],
+[data-theme='dark'] {
+  --bg:         var(--abc-bg);
+  --bg-1:       var(--abc-bg-1);
+  --bg-2:       var(--abc-bg-2);
+  --text:       var(--abc-text);
+  --text-dim:   var(--abc-text-dim);
+  --text-mute:  var(--abc-text-mute);
+  --ink:        var(--abc-ink);
+  --ink-dim:    var(--abc-ink-dim);
+  --accent:     var(--abc-accent);
+  --accent-dim: var(--abc-accent-dim);
+  --rule:       var(--abc-rule);
+  --rule-soft:  var(--abc-rule-soft);
+  --primary:    var(--abc-primary);
+  --danger:     var(--abc-danger);
+  --success:    var(--abc-success);
+}

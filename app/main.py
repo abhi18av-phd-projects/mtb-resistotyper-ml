@@ -33,6 +33,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 
 from mtb_resistotyper_ml import __version__, catalogue, catalogue_ready, resolve_all
 from mtb_resistotyper_ml.report import render
@@ -136,10 +137,62 @@ TSV_COLUMNS = ["sample_id", "drug", "prediction", "source", "layer", "p_resistan
                "reasoning", "catalogue_consulted", "catalogue_version"]
 
 
-def available_drugs() -> list[str]:
-    if not MODELS.exists():
+def available_drugs(root: Path | None = None) -> list[str]:
+    root = root or MODELS
+    if not root.exists():
         return []
-    return sorted(d.name for d in MODELS.iterdir() if (d / "model.json").exists())
+    return sorted(d.name for d in root.iterdir() if (d / "model.json").exists())
+
+
+def _release_of(root: Path) -> str | None:
+    """Which compendium release trained these bundles, per their own cards.
+
+    Read from the card rather than the directory name for the same reason
+    catalogue.version() reads the CSV's columns: a bundle set renamed on disk is
+    still the bundle set it was, and a provenance record that goes blank because
+    somebody tidied a path is worse than no record.
+
+    The card records the compendium release under ``data.release`` and the WHO
+    catalogue edition under ``provenance.catalogue_edition``; earlier drafts of
+    the schema put a release in ``provenance`` directly. All three are read,
+    ``data`` first, because that is where the published bundles actually carry
+    it -- looking only in ``provenance`` made every installed set report itself
+    as the unnamed "installed", which is the one thing a release selector must
+    never say.
+    """
+    for d in sorted(root.iterdir()):
+        card = d / "model_card.json"
+        if not card.exists():
+            continue
+        try:
+            doc = json.loads(card.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        data = doc.get("data") or {}
+        prov = doc.get("provenance") or {}
+        rel = (data.get("release") or prov.get("cryptic_version")
+               or prov.get("release"))
+        if rel:
+            return str(rel)
+    return None
+
+
+def model_roots() -> dict[str, Path]:
+    """Bundle sets by database id.
+
+    Two layouts are accepted. A flat ``MODELS/<DRUG>/`` is one unnamed set, which
+    is what every deployment has today. A nested ``MODELS/<db>/<DRUG>/`` is
+    several, one per compendium release, which is what a comparative run needs.
+    """
+    if not MODELS.exists():
+        return {}
+    if available_drugs(MODELS):
+        return {(_release_of(MODELS) or "installed"): MODELS}
+    out: dict[str, Path] = {}
+    for d in sorted(MODELS.iterdir()):
+        if d.is_dir() and available_drugs(d):
+            out[_release_of(d) or d.name] = d
+    return out
 
 
 def _reasoning(r: dict) -> str:
@@ -223,14 +276,41 @@ def objects() -> JSONResponse:
         raise HTTPException(503, str(exc)) from exc
 
 
+@app.get("/databases")
+def databases():
+    """Which compendium releases have trained bundles installed.
+
+    The UI offers exactly what this returns. A release with no bundles is not a
+    choice a user should be given, and a comparison needs two.
+    """
+    roots = model_roots()
+    return {
+        "databases": [{"id": k, "drugs": available_drugs(v), "n_drugs": len(available_drugs(v))}
+                      for k, v in roots.items()],
+        "comparative_available": len(roots) > 1,
+    }
+
+
 @app.post("/predict")
 async def predict(object_key: str | None = Form(default=None),
                   vcf: UploadFile | None = File(default=None),
                   instance_json: str | None = Form(default=None),
                   lineage: str = Form(default="unknown"),
+                  database: str = Form(default=""),
                   fmt: str = Form(default="json")):
-    if not available_drugs():
+    roots = model_roots()
+    if not roots:
         raise HTTPException(503, f"no model bundles under {MODELS}")
+    if database in ("", "all") and len(roots) == 1:
+        chosen = roots
+    elif database in ("both", "all"):
+        chosen = roots
+    elif database:
+        if database not in roots:
+            raise HTTPException(400, f"unknown database {database!r}; have {sorted(roots)}")
+        chosen = {database: roots[database]}
+    else:
+        chosen = roots
 
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
@@ -272,11 +352,17 @@ async def predict(object_key: str | None = Form(default=None),
         except (ReferenceUnavailable, BcftoolsUnavailable) as exc:
             raise HTTPException(503, str(exc)) from exc
 
-        rows = [r for inst in instances
-                for r in resolve_all(inst, MODELS, use_catalogue=catalogue_ready())]
+        rows = []
+        for db_id, root in chosen.items():
+            for inst in instances:
+                for r in resolve_all(inst, root, use_catalogue=catalogue_ready()):
+                    # Tag every row so a comparative run stays legible: two calls for
+                    # one drug are only meaningful if each says which release it came from.
+                    r["database"] = db_id
+                    rows.append(r)
 
     if fmt == "html":
-        return Response(render_report(rows, inputs={"source": source, "lineage": lineage}),
+        return Response(render_report(rows, inputs={"source": source, "databases": sorted(chosen)}),
                         media_type="text/html")
     if fmt == "txt":
         return Response(rows_to_text(rows), media_type="text/plain",
@@ -303,10 +389,18 @@ async def predict(object_key: str | None = Form(default=None),
             # The report is the artefact a reader actually opens; the rest are
             # what they reach for once it has told them where to look.
             z.writestr("report.html", render_report(
-                rows, inputs={"source": source, "lineage": lineage}))
+                rows, inputs={"source": source, "databases": sorted(chosen)}))
         return Response(buf.getvalue(), media_type="application/zip",
                         headers={"Content-Disposition": "attachment; filename=predictions.zip"})
     return JSONResponse(rows)
+
+
+# The vendored abc-site-kit theme. Served rather than inlined so the page uses
+# the same tokens.css and chrome.css as every other abc-cluster surface, and
+# picks up a palette change by revendoring one file instead of an edit here.
+_VENDOR = HERE / "static" / "vendor"
+if _VENDOR.is_dir():
+    app.mount("/vendor", StaticFiles(directory=_VENDOR), name="vendor")
 
 
 @app.get("/", response_class=HTMLResponse)

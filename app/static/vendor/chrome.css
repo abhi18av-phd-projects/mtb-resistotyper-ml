@@ -1,0 +1,162 @@
+/* abc-site-kit — canonical page CHROME (SINGLE SOURCE).
+ *
+ * The topbar (sticky header + brand lockup + theme toggle) and the
+ * site footer, shared verbatim across every web surface so they never
+ * drift again. Token-driven only: every colour is a var(--*) from
+ * abc-site-kit/brand/tokens.css — chrome.css ships NO palette of its
+ * own and works under any token source.
+ *
+ * Consumed by:
+ *   - No-build static pages (apex landing, seedling landing, Uppy
+ *     portal): vendored as dist/chrome.css and <link>ed AFTER
+ *     tokens.css.
+ *   - Docusaurus docs site: NOT imported directly (Docusaurus owns its
+ *     navbar/footer DOM). custom.css mirrors the same rules against
+ *     Infima selectors to match this design language.
+ *
+ * Canonical markup the static surfaces must use:
+ *
+ *   <header class="topbar">
+ *     <div class="topbar-inner">
+ *       <a class="brand" href="..." aria-label="abc-cluster home">
+ *         <svg class="brand-mark" viewBox="7 37 86 26" aria-hidden="true">…ABC mark…</svg>
+ *         <span class="brand-name">abc<span class="dim">-cluster</span><span class="tier"> · seedling</span></span>
+ *       </a>
+ *       <div class="top-spacer"></div>
+ *       <!-- surface-specific .top-link items -->
+ *       <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle light / dark theme">
+ *         <svg class="ti-sun"  viewBox="0 0 24 24" aria-hidden="true">…</svg>
+ *         <svg class="ti-moon" viewBox="0 0 24 24" aria-hidden="true">…</svg>
+ *       </button>
+ *     </div>
+ *   </header>
+ *
+ *   <footer class="site-footer">
+ *     <div class="footer-inner">
+ *       <div class="foot-cols">
+ *         <div class="foot-eyebrow">abc-cluster</div>
+ *         <!-- optional surface-specific .foot-col blocks -->
+ *         <div class="foot-col">
+ *           <h4>Contact</h4>
+ *           <ul class="foot-list">
+ *             <li><a href="mailto:abhinavsharma@sun.ac.za">abhinavsharma@sun.ac.za</a></li>
+ *             <li><a href="https://github.com/abc-cluster">github.com/abc-cluster</a></li>
+ *             <li><a href="/docs/">Documentation</a></li>
+ *           </ul>
+ *         </div>
+ *       </div>
+ *       <div class="foot-meta">
+ *         <span class="dim">tier:</span> seedling
+ *         <span class="sep">·</span>
+ *         <span class="dim">status:</span> <span class="status">closed beta</span>
+ *       </div>
+ *     </div>
+ *   </footer>
+ *
+ * The .tier suffix, extra .foot-col blocks, and .top-link items are the
+ * only per-surface variation. Everything else is identical.
+ */
+
+/* ─── Topbar ───────────────────────────────────────────────────────── */
+.topbar {
+  border-bottom: 1px solid var(--rule); background: var(--bg);
+  padding: 14px 0; position: sticky; top: 0; z-index: 100;
+  backdrop-filter: blur(8px);
+}
+.topbar-inner {
+  max-width: 1180px; margin: 0 auto; padding: 0 32px;
+  display: flex; align-items: center; gap: 18px;
+}
+.top-spacer { flex: 1; }
+.brand {
+  display: flex; align-items: center; gap: 10px;
+  color: var(--ink); border-bottom: none; text-decoration: none;
+  font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+  font-size: 14px; font-weight: 600;
+}
+.brand-mark { width: 36px; height: 36px; color: var(--ink); flex: none; }
+.brand-name { letter-spacing: -0.01em; }
+.brand-name .dim  { color: var(--text-dim); }
+.brand-name .tier { color: var(--accent); }
+
+.top-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 500; color: var(--text-dim);
+  text-decoration: none;
+  border: 1px solid transparent; border-radius: 6px;
+  padding: 7px 12px; transition: color .12s, border-color .12s, background .12s;
+}
+.top-link:hover { color: var(--ink); }
+.top-link.primary {
+  background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 600;
+}
+.top-link.primary:hover { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.top-link-ico { width: 16px; height: 16px; }
+
+.theme-toggle {
+  appearance: none; background: transparent;
+  border: 1px solid var(--rule); border-radius: 6px;
+  color: var(--text-dim); cursor: pointer; padding: 6px;
+  width: 32px; height: 32px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.theme-toggle:hover { color: var(--ink); border-color: var(--ink-dim); background: var(--bg-1); }
+.theme-toggle svg { width: 16px; height: 16px; }
+
+/* Dark is the default (no data-theme attr === dark). Show the moon by
+ * default; swap to the sun once an explicit dark theme is set, hide it
+ * under an explicit light theme. */
+.ti-sun  { display: none; }
+.ti-moon { display: block; }
+:root[data-theme="dark"]  .ti-sun  { display: block; }
+:root[data-theme="dark"]  .ti-moon { display: none; }
+:root[data-theme="light"] .ti-sun  { display: none; }
+:root[data-theme="light"] .ti-moon { display: block; }
+
+/* ─── Footer ──────────────────────────────────────────────────────── */
+.site-footer {
+  border-top: 1px solid var(--rule); background: var(--bg);
+}
+.footer-inner {
+  max-width: 1180px; margin: 0 auto; padding: 48px 32px 36px;
+}
+.foot-cols {
+  display: grid;
+  grid-template-columns: minmax(160px, 200px) repeat(auto-fit, minmax(180px, 1fr));
+  gap: 32px; margin-bottom: 24px;
+}
+.foot-eyebrow {
+  font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+  font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-dim); padding-top: 4px;
+}
+.foot-col h4 {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ink); margin: 0 0 12px;
+}
+.foot-col p { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--text-dim); }
+.foot-col p b { color: var(--ink); }
+.foot-list { list-style: none; padding: 0; margin: 0; }
+.foot-list li { margin-bottom: 8px; }
+.foot-list a {
+  font-size: 13.5px; color: var(--text-dim); text-decoration: none;
+  border-bottom: 1px dotted var(--rule);
+}
+.foot-list a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+.foot-meta {
+  padding-top: 18px; border-top: 1px solid var(--rule-soft);
+  font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+  font-size: 11px; letter-spacing: 0.06em; color: var(--text-mute);
+}
+.foot-meta .dim    { color: var(--text-dim); }
+.foot-meta .sep    { margin: 0 10px; color: var(--rule); }
+.foot-meta .status { color: var(--accent); }
+
+/* ─── Responsive ──────────────────────────────────────────────────── */
+@media (max-width: 800px) {
+  .topbar-inner { padding: 0 20px; }
+  .top-link span { display: none; }
+  .top-link.primary span { display: inline; }
+  .footer-inner { padding: 36px 20px 28px; }
+  .foot-cols { grid-template-columns: 1fr; gap: 24px; }
+}
