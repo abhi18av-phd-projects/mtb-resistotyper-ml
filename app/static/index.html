@@ -104,8 +104,7 @@
     <div id="pickmsg"></div>
     <details id="direct">
       <summary class="p" style="font-size:13px;color:var(--text-mute)">…or upload a file directly</summary>
-      <p class="hint" style="margin:8px 0">For a file that is not on the cluster.
-        It is converted and deleted before the response returns; nothing is stored.</p>
+      <p class="hint" id="uphint" style="margin:8px 0">For a file that is not on the cluster.</p>
       <input id="vcf" type="file" accept=".vcf,.vcf.gz,.bcf">
     </details>
   </div>
@@ -114,8 +113,9 @@
     <h2>2 · Reference database</h2>
     <label for="db">Which CRyPTIC release trained the models</label>
     <select id="db"><option value="">loading…</option></select>
-    <p class="hint" id="dbhint">Layer 2 scores with the best stacked-ensemble bundle trained
-      on the release you pick. Layer 1 is the WHO catalogue either way.</p>
+    <p class="hint" id="dbhint">Where the catalogue grades no mutation, Layer 2 answers with
+      the regularised logistic-regression model trained on the release you pick. Layer 1 is
+      the WHO catalogue either way.</p>
     <button id="go" type="button">Predict</button>
   </div>
 
@@ -194,6 +194,27 @@ async function loadDatabases(){
   }catch(e){ sel.innerHTML='<option value="">'+esc(e)+'</option>'; }
 }
 loadDatabases();
+
+/* What happens to an uploaded file depends on how this deployment is configured,
+   so say what /health reports rather than promise one behaviour for all of them.
+   Anonymous uploads, where enabled, are kept for a fixed window so a tester can
+   re-run without uploading again, and are expired by the object store. */
+(async function(){
+  const hint=$('uphint');
+  try{
+    const h=await (await fetch('health')).json();
+    if(h.anonymous_uploads){
+      const ret=h.retention||{};
+      hint.textContent='For a file that is not on the cluster. A copy is kept under '
+        +(ret.prefix||'anon-uploads/')+' for '+(ret.hours||24)+' hours, so you can re-run '
+        +'it without uploading again, and is then deleted by the object store. The results '
+        +'are returned to your browser and not stored.';
+    } else {
+      hint.textContent='For a file that is not on the cluster. It is converted and deleted '
+        +'before the response returns; nothing is stored.';
+    }
+  }catch(e){}
+})();
 
 function body(fmt){
   const fd=new FormData();

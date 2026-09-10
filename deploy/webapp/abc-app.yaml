@@ -1,9 +1,9 @@
 # mtb-resistotyper-ml prediction service.
 #
-# Layer 2 only: these models are meant to fire where a curated WHO catalogue
-# returns Unknown or Fail, and this service consults no catalogue. Every call it
-# makes is therefore a model call, and it labels each one as such rather than
-# leaving the reader to infer it.
+# Two layers. The curated WHO catalogue (MTB_CATALOGUE below) grades what it
+# can, and a model answers only where the catalogue grades no mutation for that
+# drug. Every call names which layer made it, rather than leaving the reader to
+# infer it.
 version: "1.0"
 name: mtb-resistotyper
 project: mbhg-bioinformatics
@@ -21,10 +21,11 @@ health: /health
 
 # Public, so that the models described in the manuscript can be exercised by a
 # reviewer or a reader without cluster access. That reach is the reason the
-# page and every download state, unprompted, that these are Layer 2 model calls
-# from models with no prospective validation, and that no curated catalogue was
-# consulted. A reader who arrives from a search engine rather than from the
-# paper has to be told the same thing the paper tells them.
+# page and every download state, unprompted, which layer answered each call,
+# which catalogue edition Layer 1 used, and that the model calls come from
+# models with no prospective validation. A reader who arrives from a search
+# engine rather than from the paper has to be told the same thing the paper
+# tells them.
 access: team
 expose: [public, shared, private]
 
