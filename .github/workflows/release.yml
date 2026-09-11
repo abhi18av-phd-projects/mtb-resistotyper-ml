@@ -1,15 +1,31 @@
-# Publish to PyPI on a version tag, via Trusted Publishing.
+# Publish to PyPI on a version tag, using an API token stored as an
+# environment secret.
 #
-# No API token is stored anywhere: PyPI verifies a short-lived OIDC credential
-# minted by GitHub for this repository and workflow. A long-lived token in repo
-# secrets is the thing most often leaked, and this avoids having one at all.
+# v0.3.0 was published by hand (the pending-publisher registration Trusted
+# Publishing needs was never completed, and publishing could not wait), which
+# spends this workflow's original design -- OIDC, no token stored anywhere.
+# Token-based auth is the fallback PyPI itself documents for exactly this
+# case. The token is scoped to the `pypi` GitHub Environment rather than a
+# bare repository secret, so only a job that declares `environment: pypi`
+# (below) can read it -- the same blast-radius argument that motivated OIDC
+# in the first place, just with a token instead of a short-lived credential.
 #
-# One-time setup on PyPI (Your projects -> Publishing -> Add a pending publisher):
-#   PyPI project   mtb-resistotyper-ml
-#   Owner          abhi18av-phd-projects
-#   Repository     mtb-resistotyper-ml
-#   Workflow       release.yml
-#   Environment    pypi
+# One-time setup, both on pypi.org:
+#   1. Log in, then Account settings -> API tokens -> Add API token.
+#      Scope it to the mtb-resistotyper-ml project specifically (it has a
+#      release now, so a project-scoped token is available) rather than to
+#      the whole account.
+#   2. Store it as an environment secret, not a repo secret, so only this
+#      workflow's `pypi`-environment job can see it:
+#        gh secret set PYPI_API_TOKEN --repo abhi18av-phd-projects/mtb-resistotyper-ml --env pypi
+#      Run from your own terminal -- the token should never pass through an
+#      agent or a chat transcript.
+#
+# Trusted Publishing remains the better long-term mechanism (no stored
+# secret, nothing to rotate or leak) and can still be set up later; doing so
+# needs no change here beyond removing the `with: password:` line below, so
+# switching back is one line whenever the pending-publisher registration
+# actually gets done.
 name: release
 
 on:
@@ -48,12 +64,12 @@ jobs:
   publish:
     needs: build
     runs-on: ubuntu-latest
-    environment: pypi
-    permissions:
-      id-token: write        # the OIDC credential; nothing else is granted
+    environment: pypi        # gates access to the PYPI_API_TOKEN environment secret
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
