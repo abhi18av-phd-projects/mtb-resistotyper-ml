@@ -247,7 +247,14 @@ def health() -> dict:
         store_ok = True          # listing is off by policy; storage itself is fine
     except Exception:
         store_ok = False
-    return {"status": "ok", "version": __version__, "drugs": available_drugs(),
+    # available_drugs() alone checks the flat MODELS/<DRUG>/ layout, which is
+    # empty under the nested MODELS/<release>/<DRUG>/ layout model_roots()
+    # discovers for two or more installed releases -- a health check is the
+    # wrong place to say "no drugs" while /predict is answering every drug.
+    roots = model_roots()
+    drugs = sorted({d for root in roots.values() for d in available_drugs(root)})
+    return {"status": "ok", "version": __version__, "drugs": drugs,
+            "databases": sorted(roots),
             "reference_present": REFERENCE.exists(),
             "bcftools": normalise.available(),
             "catalogue_available": cat_ok, "catalogue": cat,
