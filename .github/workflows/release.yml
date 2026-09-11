@@ -1,0 +1,59 @@
+# Publish to PyPI on a version tag, via Trusted Publishing.
+#
+# No API token is stored anywhere: PyPI verifies a short-lived OIDC credential
+# minted by GitHub for this repository and workflow. A long-lived token in repo
+# secrets is the thing most often leaked, and this avoids having one at all.
+#
+# One-time setup on PyPI (Your projects -> Publishing -> Add a pending publisher):
+#   PyPI project   mtb-resistotyper-ml
+#   Owner          abhi18av-phd-projects
+#   Repository     mtb-resistotyper-ml
+#   Workflow       release.yml
+#   Environment    pypi
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade build
+      - run: python -m build
+      # A wheel that does not import is not worth publishing. This is the same
+      # bare-install check that caught an unsatisfiable extra before release.
+      - name: bare install imports and runs
+        run: |
+          python -m venv /tmp/bare
+          /tmp/bare/bin/pip install --quiet dist/*.whl
+          /tmp/bare/bin/python -c "import mtb_resistotyper_ml as m; print(m.__version__)"
+          /tmp/bare/bin/mtb-resistotyper-ml --help > /dev/null
+      - name: extras resolve
+        run: |
+          python -m venv /tmp/full
+          /tmp/full/bin/pip install --quiet "$(ls dist/*.whl)[all]"
+          /tmp/full/bin/python -c "import gumpy, piezo; print('extras OK')"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write        # the OIDC credential; nothing else is granted
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
