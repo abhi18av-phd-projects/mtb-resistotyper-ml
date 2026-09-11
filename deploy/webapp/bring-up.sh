@@ -11,8 +11,16 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# mtb-resistotyper-ml-models (unsuffixed, MODELS_REPO below) is the development
+# checkout: fast to iterate on, and the only set with no fe_version/fe_id
+# recorded. It is for testing this script and the release selector, not for
+# serving. MODELS_REPOS defaults instead to the two editions meant to reach
+# Zenodo, so a bare run of this script ships what the manuscript and the
+# deposit both point at; set MODELS_REPOS=$MODELS_REPO to serve the dev set.
 MODELS_REPO="${MODELS_REPO:-$(cd "$REPO_ROOT/../mtb-resistotyper-ml-models" && pwd)}"
-TAG="${TAG:-v0.2.8}"
+_RELEASE_SETS="$(cd "$REPO_ROOT/../mtb-resistotyper-ml-release-sets" && pwd)"
+DEFAULT_MODELS_REPOS="$_RELEASE_SETS/mtb-resistotyper-ml-models-v3.4.0+fe1.0.3:$_RELEASE_SETS/mtb-resistotyper-ml-models-v2.1.2+fe1.0.3"
+TAG="${TAG:-v0.2.9}"
 REGISTRY="${REGISTRY:-ghcr.io/abhi18av-phd-projects/mtb-resistotyper-ml}"
 IMAGE="mtb-resistotyper-webapp"
 HOST="${HOST:-sun-aither}"
@@ -50,7 +58,7 @@ cp -R app/*.py app/static app/Dockerfile "$STAGE/app/"
 # comparison to draw. The directory is named from the bundles' own
 # data.release, not from the repo's path, so a set stays identifiable after
 # somebody renames a checkout.
-MODELS_REPOS="${MODELS_REPOS:-$MODELS_REPO}"
+MODELS_REPOS="${MODELS_REPOS:-$DEFAULT_MODELS_REPOS}"
 IFS=':' read -r -a _repos <<< "$MODELS_REPOS"
 if [ "${#_repos[@]}" -eq 1 ]; then
   cp -R "${_repos[0]}/models" "$STAGE/models"

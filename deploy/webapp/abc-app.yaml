@@ -14,7 +14,7 @@ framework: custom
 # "aither.local/...", a convention for images already sitting in one host's
 # docker daemon: the deploy worked only because that host happened to hold the
 # build, and would have placed a job that could never pull anywhere else.
-image: ghcr.io/abhi18av-phd-projects/mtb-resistotyper-ml/mtb-resistotyper-webapp:v0.2.8
+image: ghcr.io/abhi18av-phd-projects/mtb-resistotyper-ml/mtb-resistotyper-webapp:v0.2.9
 
 port: 8080
 health: /health
