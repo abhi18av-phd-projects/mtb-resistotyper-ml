@@ -1,0 +1,64 @@
+# Build and push the CLI Docker image (deploy/cli/Dockerfile) on the same
+# `v*` tags release.yml publishes to PyPI from, so the wheel on PyPI and the
+# image on GHCR name the same version and were built from the same commit.
+# No API token stored: GHCR authenticates with the workflow's own GITHUB_TOKEN.
+name: docker-cli
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/mtb-resistotyper-ml/mtb-resistotyper-ml-cli
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: derive the tag
+        id: v
+        run: echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Built, not pushed yet: a tag whose --version check fails should never
+      # reach the registry, the same discipline release.yml's bare-install
+      # check applies to the wheel.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/cli/Dockerfile
+          tags: ${{ env.IMAGE }}:${{ steps.v.outputs.tag }}
+          load: true
+          push: false
+
+      - name: verify inside the built image
+        run: |
+          got="$(docker run --rm ${{ env.IMAGE }}:${{ steps.v.outputs.tag }} --version | awk '{print $2}')"
+          want="${{ steps.v.outputs.tag }}"
+          want="${want#v}"
+          if [ "$got" != "$want" ]; then
+            echo "image reports version $got, tag is ${{ steps.v.outputs.tag }}" >&2
+            exit 1
+          fi
+          # The reference and catalogue must actually be there -- a broken curl
+          # step earlier in the build would otherwise only surface the first
+          # time someone runs `predict --vcf` for real.
+          docker run --rm --entrypoint sh ${{ env.IMAGE }}:${{ steps.v.outputs.tag }} -c \
+            'test -s "$MTB_REFERENCE_GENBANK" && test -s "$MTB_CATALOGUE"'
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: push
+        run: docker push ${{ env.IMAGE }}:${{ steps.v.outputs.tag }}

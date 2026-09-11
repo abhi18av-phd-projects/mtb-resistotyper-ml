@@ -1,0 +1,76 @@
+[workspace]
+# bioconda carries bcftools -- the one runtime dependency pip cannot supply
+# (README, "Runtime"). conda-forge carries everything else pixi resolves as a
+# conda package. Order matters: conda-forge first, so a package present on
+# both never resolves to bioconda's usually-older build.
+channels = ["conda-forge", "bioconda"]
+# linux-64 is what the CI runners and the Docker image (deploy/cli) target;
+# osx-64 and osx-arm64 cover an Intel or Apple Silicon Mac laptop. This is a
+# CLI-and-library tool with no platform-specific code, so nothing else is
+# expected to need excluding.
+platforms = ["linux-64", "osx-64", "osx-arm64"]
+name = "mtb-resistotyper-ml"
+
+[dependencies]
+# The floor this package itself declares (pyproject.toml, requires-python).
+python = ">=3.10,<3.13"
+bcftools = ">=1.20"
+
+# --- features -----------------------------------------------------------
+#
+# `runtime` is what every environment needs to score an isolate end to end:
+# the package's own [vcf] and [catalogue] extras, materialised as pixi
+# dependencies since gumpy and piezo are PyPI-only (not on conda-forge or
+# bioconda) and pixi resolves conda and PyPI dependencies into one lock
+# together. Kept separate from `dev`/`prod` so both inherit it identically
+# rather than each repeating gumpy/piezo's version pins.
+#
+# `dev` adds the local package EDITABLE, so a source edit is live without
+# reinstalling, plus the tools CI runs (ruff, pytest) and `build`, for
+# cutting a wheel locally the same way release.yml does.
+#
+# `prod` adds the local package NON-editable -- a real install from this
+# checkout, the same shape `pip install mtb-resistotyper-ml[all]` produces
+# from a release, and what deploy/cli/Dockerfile installs into the image.
+# It intentionally does NOT depend on the package being published to PyPI
+# yet: building from the checked-out commit is what the pipeline repo's own
+# images do, for the same reason -- an image traceable to a git revision
+# rather than to whatever an index happened to serve.
+
+[feature.runtime.pypi-dependencies]
+gumpy = ">=1.3"
+piezo = ">=0.9"
+# gumpy reads SeqFeature.strand, which Biopython deprecated in 1.81 and removed
+# in 1.85 (app/Dockerfile carries the same pin, for the same reason): confirmed
+# by running an actual VCF through this environment unpinned -- pixi resolved
+# 1.88, and gene reconstruction from a real GenBank record failed on every
+# gene, not just some.
+biopython = "==1.83"
+
+[feature.dev.dependencies]
+ruff = ">=0.6"
+pytest = ">=8"
+[feature.dev.pypi-dependencies]
+mtb-resistotyper-ml = { path = ".", editable = true }
+build = "*"
+
+[feature.prod.pypi-dependencies]
+mtb-resistotyper-ml = { path = ".", editable = false }
+
+[environments]
+# `default` == `dev`: `pixi install` with no -e flag gives a working dev
+# setup, which is what "setup a dev environment" should mean with no extra
+# argument to remember.
+default = { features = ["runtime", "dev"], solve-group = "default" }
+dev = { features = ["runtime", "dev"], solve-group = "default" }
+prod = { features = ["runtime", "prod"], solve-group = "prod" }
+
+[tasks]
+test = "pytest -q"
+lint = "ruff check src tests"
+predict = "mtb-resistotyper-ml predict"
+describe = "mtb-resistotyper-ml describe"
+layers = "mtb-resistotyper-ml layers"
+
+[feature.dev.tasks]
+build-wheel = "rm -rf dist && python -m build --wheel"

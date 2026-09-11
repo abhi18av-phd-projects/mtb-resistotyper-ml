@@ -26,6 +26,40 @@ producing a wrong answer from an unnormalised file.
 Both capabilities are imported lazily, so a bare install imports and runs; ask it to do
 something it lacks the dependency for and it says which one is missing.
 
+## A reproducible install: dev and prod (pixi)
+
+`pip install` above still works and needs nothing else. [pixi](https://pixi.sh) is the
+route to a full, reproducible environment in one command, because it is the one tool
+here that can actually supply **bcftools** — a conda package, not a PyPI one, and the
+thing the plain-pip install above has to ask you to find yourself.
+
+```bash
+pixi install            # dev: editable install, pytest, ruff, bcftools, gumpy, piezo
+pixi install -e prod    # prod: a real (non-editable) install of this checkout, same
+                         # deps, no dev tooling — what deploy/cli/Dockerfile builds
+```
+
+```bash
+pixi run test            # pytest -q
+pixi run lint             # ruff check src tests
+pixi run predict -- --vcf isolate.vcf --models ./models --tsv
+```
+
+`pixi.toml` pins `biopython==1.83`: gumpy reads `SeqFeature.strand`, which Biopython
+deprecated in 1.81 and removed in 1.85, and an unpinned resolve reliably picks a newer
+one — confirmed by running a real VCF through the unpinned environment, which failed
+gene reconstruction on every gene, not just some (`app/Dockerfile` carries the identical
+pin, for the identical reason).
+
+**A source edit needs `pixi reinstall` under `prod`, not `pixi install` again.** `prod`
+installs this checkout non-editable, and pixi does not notice a source change on a plain
+`pixi install` for a local path dependency — `dev`'s editable install always picks edits
+up live; `prod` needs telling:
+
+```bash
+pixi reinstall -e prod --frozen
+```
+
 ## Two ways in, one computation
 
 The command line and any Python caller enter through the same function, so a call made
@@ -104,6 +138,27 @@ Note what the second line of reasoning does: `katG S315T` genuinely raises the r
 probability, because in this population it travels with `rpoB` mutations — but it is not a
 rifampicin mechanism, and the tool says so rather than presenting it as one.
 
+## Running the container image
+
+`deploy/cli/Dockerfile` packages the tool, bcftools, the H37Rv reference and the WHO
+catalogue into one image. It does **not** bake in a model — mount a downloaded
+[`mtb-resistotyper-ml-models`](https://github.com/abhi18av-phd-projects/mtb-resistotyper-ml-models)
+release instead, the same directory `--models` takes above, so the image tag pins the
+tool version and the model release pins itself:
+
+```bash
+docker run --rm \
+  -v "$PWD/models:/models:ro" -v "$PWD/data:/data:ro" -v "$PWD/out:/out" \
+  ghcr.io/abhi18av-phd-projects/mtb-resistotyper-ml/mtb-resistotyper-ml-cli:vX.Y.Z \
+  predict --vcf /data/isolate.vcf --models /models --outdir /out
+```
+
+Built and pushed by `.github/workflows/docker-cli.yml` on the same `v*` tag
+`release.yml` publishes to PyPI from, so the wheel and the image always name the same
+commit. `--models` may also point at one release inside the nested
+`MODELS/<release>/<DRUG>/` layout `deploy/webapp/bring-up.sh` produces for more than
+one installed release.
+
 ## Input
 
 A JSON instance validating against `input_spec.schema.json`: GARC-nomenclature variant calls
@@ -123,11 +178,13 @@ that locus.
 
 ## What this tool does not do
 
-**It is a Layer 2 predictor.** It is meant to fire where the curated WHO catalogue returns
-Unknown or Fail — roughly 40% of catalogue entries, plus all novel variants — and it never
-overrides a catalogue call. Layer 1, catalogue evaluation via `piezo`, is not yet wired into
-this runner; until it is, run the catalogue yourself and consult this tool only for what the
-catalogue could not grade. Installing the `catalogue` extra does not change that.
+**It is a Layer 2 predictor.** Layer 1, the curated WHO catalogue via `piezo`, is
+consulted first (`mtb_resistotyper_ml.catalogue`); a model is invoked only for a drug
+the catalogue graded Unknown, Fail, or not at all — roughly 40% of catalogue entries,
+plus every novel variant — and a model never overrides a catalogue call. Every result
+carries `layer` and `source` so a caller can always tell which one answered. Passing
+`--no-catalogue` (or omitting `--catalogue`/`MTB_CATALOGUE` with the `catalogue` extra
+not installed) turns Layer 1 off entirely, and every call then becomes a model call.
 
 **It is not clinically validated.** No prospective validation has been done. Research use only.
 
