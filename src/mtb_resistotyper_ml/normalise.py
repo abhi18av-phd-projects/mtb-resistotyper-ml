@@ -34,7 +34,6 @@ from __future__ import annotations
 
 import shutil
 import subprocess
-import tempfile
 from pathlib import Path
 
 ALIASES = {
@@ -45,10 +44,19 @@ ALIASES = {
     "AL123456": "NC_000962.3",
     "H37Rv": "NC_000962.3",
     "Chromosome": "NC_000962.3",
+    # MTBseq-nf's own bundled reference (data/references/ref/M._tuberculosis_
+    # H37Rv_2015-11-13.fasta), when a run is configured to use it: real H37Rv
+    # coordinates (the .fai reports the same 4,411,532 bp NC_000962.3 is), just
+    # under MTBseq's own contig name. Confirmed against that reference's .fai,
+    # not assumed. MTBseq-nf does not itself emit a VCF -- its native output is
+    # tab-delimited position tables -- so this alias only fires for a VCF some
+    # other step derived from a BAM called against this same reference build.
+    "M.tuberculosis_H37Rv": "NC_000962.3",
 }
-# MTBseq calls against a reconstructed ancestral genome that differs from H37Rv
-# at roughly a thousand positions. Renaming it would shift every coordinate, so
-# it is refused rather than aliased.
+# Classic MTBseq defaults to calling against a reconstructed ancestral genome
+# that differs from H37Rv at roughly a thousand positions (distinct from the
+# H37Rv-configured MTBseq-nf alias above). Renaming it would shift every
+# coordinate, so it is refused rather than aliased.
 REFUSED = {"MTB_anc": "a reconstructed ancestral genome, not H37Rv"}
 
 
@@ -72,7 +80,8 @@ def contigs(vcf: Path) -> list[str]:
     seen, out = set(), []
     for c in r.stdout.split():
         if c not in seen:
-            seen.add(c); out.append(c)
+            seen.add(c)
+            out.append(c)
     return out
 
 
@@ -176,7 +185,6 @@ def regions_bed(genes: set[str], genbank: Path, dest: Path) -> Path | None:
     # image already reads this file once through gumpy and a second full parse
     # costs more than the scan it replaces.
     rows: list[tuple[int, int, str]] = []
-    loc = None
     text = genbank.read_text(errors="replace")
     for block in text.split("\n     gene            ")[1:]:
         head, _, rest = block.partition("\n")
