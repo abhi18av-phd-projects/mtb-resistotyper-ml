@@ -22,6 +22,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from mtb_resistotyper_ml import catalogue as _catalogue
+
 REFERENCE_ENV = "MTB_REFERENCE_GENBANK"
 
 
@@ -85,7 +87,14 @@ def genes_of_interest(models_dir: Path | None = None) -> set[str]:
             for f in json.loads(schema.read_text()).get("features", []):
                 if f.get("gene"):
                     genes.add(f["gene"])
-    cat = Path(os.environ.get("MTB_CATALOGUE", ""))
+    # Reads catalogue.CATALOGUE rather than re-deriving MTB_CATALOGUE here: this
+    # is the same path --catalogue sets (the CLI writes it into that module, not
+    # into the environment) and the same default catalogue.py itself falls back
+    # to. Re-deriving it independently, from `os.environ.get("MTB_CATALOGUE",
+    # "")`, was a second bug on top of missing --catalogue: an unset env var
+    # made this `Path("")`, which is `Path(".")`, which exists, so the code
+    # went on to open the current directory as a file.
+    cat = _catalogue.CATALOGUE
     if cat.exists():
         with cat.open() as fh:
             for row in csv.DictReader(fh):
