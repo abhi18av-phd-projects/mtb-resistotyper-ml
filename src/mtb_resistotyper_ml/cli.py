@@ -18,8 +18,7 @@ import sys
 from pathlib import Path
 
 from mtb_resistotyper_ml import catalogue as _catalogue
-from mtb_resistotyper_ml.ingest import (BcftoolsUnavailable, ReferenceUnavailable,
-                                        instances_from_vcf)
+from mtb_resistotyper_ml.ingest import BcftoolsUnavailable, ReferenceUnavailable, instances_from_vcf
 from mtb_resistotyper_ml.layers import catalogue_ready, resolve_all
 from mtb_resistotyper_ml.report import render
 from mtb_resistotyper_ml.score import ModelBundle

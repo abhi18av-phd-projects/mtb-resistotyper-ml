@@ -71,7 +71,7 @@ def _row(contig, pos, ref, alt, calls, *, non_ref=True, haploid=True):
 def write(name, samples, carriers, *, contig=CONTIG_MAGMA, non_ref=True, haploid=True):
     """`carriers` is one bool per sample per RRDR row."""
     body = [HEADER.format(contig=contig, length=LENGTH, samples="\t".join(samples))]
-    for (pos, ref, alt), calls in zip(RPOB_RRDR, carriers):
+    for (pos, ref, alt), calls in zip(RPOB_RRDR, carriers, strict=True):
         body.append(_row(contig, pos, ref, alt, calls, non_ref=non_ref, haploid=haploid) + "\n")
     (HERE / name).write_text("".join(body))
     return HERE / name
@@ -130,7 +130,8 @@ if __name__ == "__main__":
     #    normaliser's aliasing and ploidy handling.
     write("synthetic_plain.vcf", ["SYNTH01"], [[True], [True]],
           contig=CONTIG_PLAIN, non_ref=False, haploid=False)
-    one = lambda v: [v]
+    def one(v):
+        return [v]
 
     # --- drug and layer coverage -------------------------------------------
     write_rows("synthetic_inh_katg.g.vcf", ["SYNTH04"],

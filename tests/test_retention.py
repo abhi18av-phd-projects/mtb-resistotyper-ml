@@ -8,14 +8,13 @@ uploader read another's file, are both silent failures in production.
 from __future__ import annotations
 
 import datetime
-import os
 import sys
 from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "app"))
-import storage  # noqa: E402
+import storage
 
 
 def test_listing_is_off_unless_a_prefix_is_named(monkeypatch) -> None:
@@ -58,7 +57,8 @@ def test_anonymous_keys_are_dated_and_unguessable(monkeypatch) -> None:
 
 
 def test_a_traversing_filename_cannot_escape_the_prefix(monkeypatch) -> None:
-    monkeypatch.setattr(storage, "_client", lambda: type("F", (), {"put_object": lambda *a, **k: None})())
+    stub = type("F", (), {"put_object": lambda *a, **k: None})
+    monkeypatch.setattr(storage, "_client", lambda: stub())
     key = storage.store_anonymous(b"x", "../../etc/passwd")
     assert key.startswith("anon-uploads/") and ".." not in key
 

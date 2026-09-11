@@ -8,15 +8,18 @@ identical is to give them one function rather than three copies of it.
 from __future__ import annotations
 
 import tempfile
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 from . import normalise
-from .vcf_to_garc import (ReferenceUnavailable, genes_of_interest, to_instance,
-                          variants_from_vcf)
+from .vcf_to_garc import ReferenceUnavailable, genes_of_interest, to_instance, variants_from_vcf
 
-__all__ = ["instances_from_vcf", "iter_instances_from_vcf",
-           "ReferenceUnavailable", "BcftoolsUnavailable"]
+__all__ = [
+    "BcftoolsUnavailable",
+    "ReferenceUnavailable",
+    "instances_from_vcf",
+    "iter_instances_from_vcf",
+]
 
 
 class BcftoolsUnavailable(RuntimeError):

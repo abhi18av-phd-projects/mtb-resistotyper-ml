@@ -10,16 +10,33 @@ their own release cadence, joined to the runner only by the artefact contract:
 range. Either side can move without the other.
 """
 
-from mtb_resistotyper_ml.version import __version__
 from mtb_resistotyper_ml import catalogue
 from mtb_resistotyper_ml.explain import explain
+from mtb_resistotyper_ml.ingest import (
+                                        BcftoolsUnavailable,
+                                        ReferenceUnavailable,
+                                        instances_from_vcf,
+                                        iter_instances_from_vcf,
+)
+from mtb_resistotyper_ml.layers import catalogue_ready, resolve, resolve_all
 from mtb_resistotyper_ml.score import ModelBundle, reliability, score
 from mtb_resistotyper_ml.vectorize import fired, vectorize
-from mtb_resistotyper_ml.layers import catalogue_ready, resolve, resolve_all
-from mtb_resistotyper_ml.ingest import (BcftoolsUnavailable, ReferenceUnavailable,
-                                        instances_from_vcf, iter_instances_from_vcf)
+from mtb_resistotyper_ml.version import __version__
 
-__all__ = ["ModelBundle", "score", "reliability", "explain", "vectorize", "fired",
-           "catalogue", "catalogue_ready", "resolve", "resolve_all",
-           "instances_from_vcf", "iter_instances_from_vcf",
-           "ReferenceUnavailable", "BcftoolsUnavailable", "__version__"]
+__all__ = [
+                                        "BcftoolsUnavailable",
+                                        "ModelBundle",
+                                        "ReferenceUnavailable",
+                                        "__version__",
+                                        "catalogue",
+                                        "catalogue_ready",
+                                        "explain",
+                                        "fired",
+                                        "instances_from_vcf",
+                                        "iter_instances_from_vcf",
+                                        "reliability",
+                                        "resolve",
+                                        "resolve_all",
+                                        "score",
+                                        "vectorize",
+]

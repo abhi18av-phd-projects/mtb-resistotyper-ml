@@ -15,8 +15,6 @@ correctly declares its own.
 
 from __future__ import annotations
 
-from typing import Any
-
 # Canonical determinants, gene -> drugs. Used ONLY to label on- versus off-target.
 # The prediction never consults it.
 DETERMINANTS: dict[str, set[str]] = {
